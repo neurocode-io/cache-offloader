@@ -11,7 +11,7 @@ import (
 
 type repository interface {
 	lookUp(string) (http.Response, error)
-	store(string, http.Response) error
+	store(string, []byte) error
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
@@ -19,10 +19,23 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func responseHandler(res *http.Response) error {
-	log.Printf("Got response %v", res)
-	// TODO save the response to redis with requestId as key
-	return nil
+func responseHandler(requestId string, r repository) func(*http.Response) error {
+
+	return func(javaResponse *http.Response) error {
+		log.Printf("Got response from java service %v", javaResponse)
+		// TODO save the response to redis with requestId as key
+		serializedResp, err := httputil.DumpResponse(javaResponse, true)
+		if err != nil {
+			return err
+		}
+
+		if err := r.store(requestId, serializedResp); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 }
 
 func livenessHandler(res http.ResponseWriter, req *http.Request) {
@@ -48,7 +61,6 @@ func indempotencyHandler(r repository, downstreamURL *url.URL, allowedEndpoints 
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 
 	proxy.ErrorHandler = errHandler
-	proxy.ModifyResponse = responseHandler
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		// fdont do anything to the endpoints not in the allowedEndpoints list
@@ -65,6 +77,8 @@ func indempotencyHandler(r repository, downstreamURL *url.URL, allowedEndpoints 
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		// initialize proxyResponse callback
+		proxy.ModifyResponse = responseHandler(requestId, r)
 
 		result, err := r.lookUp(requestId)
 		if err != nil {
