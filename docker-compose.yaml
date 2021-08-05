@@ -1,0 +1,29 @@
+version: "3.7"
+
+services:
+  redis:
+    init: true
+    ports:
+      - 6379:6379
+    image: redis:6.2.5-buster
+    command: [
+        "sh",
+        "-c",
+        "redis-server \
+        --requirepass $${REDIS_PASSWORD} \
+        --appendonly no \
+        --save ''",
+      ]
+    env_file:
+      - ./dev.env
+
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    init: true
+    ports:
+      - 8001:8001
+    volumes:
+      - redisinsight:/db
+
+volumes:
+  redisinsight:
