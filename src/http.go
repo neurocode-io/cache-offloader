@@ -21,6 +21,7 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 
 func responseHandler(res *http.Response) error {
 	log.Printf("Got response %v", res)
+	// TODO save the response to redis with requestId as key
 	return nil
 }
 
