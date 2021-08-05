@@ -19,6 +19,11 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
+func responseHandler(res *http.Response) error {
+	log.Printf("Got response %v", res)
+	return nil
+}
+
 func livenessHandler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "Alive")
 }
@@ -42,6 +47,7 @@ func indempotencyHandler(r repository, downstreamURL *url.URL, allowedEndpoints 
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 
 	proxy.ErrorHandler = errHandler
+	proxy.ModifyResponse = responseHandler
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		// fdont do anything to the endpoints not in the allowedEndpoints list

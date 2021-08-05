@@ -1,6 +1,8 @@
 package main
 
-import "regexp"
+import (
+	"regexp"
+)
 
 func variableMatchesRegexIn(variable string, list []string) bool {
 	for _, value := range list {
