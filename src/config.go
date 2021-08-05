@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 )
 
 func getEnv(key, defaultVal string) string {
@@ -15,4 +16,13 @@ func getEnv(key, defaultVal string) string {
 	}
 
 	return defaultVal
+}
+
+func getEnvAsSlice(key string) []string {
+	strSlice, _ := os.LookupEnv(key)
+	if strSlice == "" {
+		return nil
+	}
+
+	return strings.Split(strSlice, ",")
 }

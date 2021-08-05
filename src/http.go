@@ -44,11 +44,13 @@ func indempotencyHandler(r repository, downstreamURL *url.URL, allowedEndpoints 
 	proxy.ErrorHandler = errHandler
 
 	return func(res http.ResponseWriter, req *http.Request) {
-		if variableMatchesRegexIn(req.URL.Path, allowedEndpoints) {
+		// fdont do anything to the endpoints not in the allowedEndpoints list
+		if variableMatchesRegexIn(req.URL.Path, allowedEndpoints) == false {
 			proxy.ServeHTTP(res, req)
 			return
 		}
 
+		// only cache the calls that are configured in the allowedEndpoints list
 		requestId, err := getRequestId(req)
 		if err != nil {
 			// TODY check what to do when header is missing
