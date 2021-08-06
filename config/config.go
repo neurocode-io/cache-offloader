@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"log"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func getEnv(key, defaultVal string) string {
+func GetEnv(key, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
@@ -18,7 +18,7 @@ func getEnv(key, defaultVal string) string {
 	return defaultVal
 }
 
-func getEnvAsSlice(key string) []string {
+func GetEnvAsSlice(key string) []string {
 	strSlice, _ := os.LookupEnv(key)
 	if strSlice == "" {
 		return nil

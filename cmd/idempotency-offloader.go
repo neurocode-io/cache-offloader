@@ -3,13 +3,17 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
+	h "net/http"
+
+	"dpd.de/indempotency-offloader/config"
+	"dpd.de/indempotency-offloader/pkg/http"
 )
 
 func main() {
-	thisPort := getEnv("SERVER_PORT", "8000")
+
+	thisPort := config.GetEnv("SERVER_PORT", "8000")
 	// applicationPort := getEnv("APPLICATION_PORT", "8080")
-	allowedEndpoints := getEnvAsSlice("ALLOWED_ENDPOINTS")
+	allowedEndpoints := config.GetEnvAsSlice("ALLOWED_ENDPOINTS")
 	// applicationServer := fmt.Sprintf("http://localhost:%s", applicationPort)
 
 	// downstreamURL, err := url.Parse(applicationServer)
@@ -18,11 +22,12 @@ func main() {
 	// }
 
 	// http.HandleFunc("/", indempotencyHandler(downstreamURL, allowedEndpoints))
-	http.HandleFunc("/probes/liveness", livenessHandler)
-	http.HandleFunc("/probes/readiness", readinessHandler)
+
+	h.HandleFunc("/probes/liveness", http.LivenessHandler)
+	h.HandleFunc("/probes/readiness", http.ReadinessHandler)
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
 	log.Printf("Starting idempotency-offloader, listening: %s", thisServe)
 	log.Printf("Idempotency configured for the following endpoints: %v", allowedEndpoints)
-	log.Panicf(fmt.Sprint(http.ListenAndServe(thisServe, nil)))
+	log.Panicf(fmt.Sprint(h.ListenAndServe(thisServe, nil)))
 }

@@ -1,10 +1,10 @@
-package main
+package utils
 
 import (
 	"regexp"
 )
 
-func variableMatchesRegexIn(variable string, list []string) bool {
+func VariableMatchesRegexIn(variable string, list []string) bool {
 	for _, value := range list {
 
 		if matched, _ := regexp.MatchString(value, variable); matched {

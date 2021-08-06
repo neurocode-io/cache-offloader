@@ -1,12 +1,14 @@
-package main
+package http
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+
+	"dpd.de/indempotency-offloader/pkg/storage"
+	"dpd.de/indempotency-offloader/pkg/utils"
 )
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
@@ -14,7 +16,7 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func responseHandler(requestId string, r Repository) func(*http.Response) error {
+func responseHandler(requestId string, r storage.Repository) func(*http.Response) error {
 
 	return func(downstream *http.Response) error {
 		log.Printf("Got response from downstream service %v", downstream)
@@ -24,22 +26,13 @@ func responseHandler(requestId string, r Repository) func(*http.Response) error 
 			return err
 		}
 
-		if err := r.store(requestId, serializedResp); err != nil {
+		if err := r.Store(requestId, serializedResp); err != nil {
 			return err
 		}
 
 		return nil
 	}
 
-}
-
-func livenessHandler(res http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(res, "Alive")
-}
-
-func readinessHandler(res http.ResponseWriter, req *http.Request) {
-	// TODO add redis check
-	fmt.Fprintf(res, "Alive")
 }
 
 func getRequestId(req *http.Request) (string, error) {
@@ -52,14 +45,14 @@ func getRequestId(req *http.Request) (string, error) {
 	return maybeRequestId, nil
 }
 
-func indempotencyHandler(r Repository, downstreamURL *url.URL, allowedEndpoints []string) http.HandlerFunc {
+func indempotencyHandler(r storage.Repository, downstreamURL *url.URL, allowedEndpoints []string) http.HandlerFunc {
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 
 	proxy.ErrorHandler = errHandler
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		// fdont do anything to the endpoints not in the allowedEndpoints list
-		if variableMatchesRegexIn(req.URL.Path, allowedEndpoints) == false {
+		if utils.VariableMatchesRegexIn(req.URL.Path, allowedEndpoints) == false {
 			proxy.ServeHTTP(res, req)
 			return
 		}
@@ -75,7 +68,7 @@ func indempotencyHandler(r Repository, downstreamURL *url.URL, allowedEndpoints 
 		// initialize proxyResponse callback
 		proxy.ModifyResponse = responseHandler(requestId, r)
 
-		result, err := r.lookUp(requestId)
+		result, err := r.LookUp(requestId)
 		if err != nil {
 			proxy.ServeHTTP(res, req)
 			return
