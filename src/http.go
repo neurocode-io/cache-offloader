@@ -9,22 +9,17 @@ import (
 	"net/url"
 )
 
-type repository interface {
-	lookUp(string) (http.Response, error)
-	store(string, []byte) error
-}
-
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	log.Printf("Error occured: %v", err)
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func responseHandler(requestId string, r repository) func(*http.Response) error {
+func responseHandler(requestId string, r Repository) func(*http.Response) error {
 
-	return func(javaResponse *http.Response) error {
-		log.Printf("Got response from java service %v", javaResponse)
+	return func(downstream *http.Response) error {
+		log.Printf("Got response from downstream service %v", downstream)
 		// TODO save the response to redis with requestId as key
-		serializedResp, err := httputil.DumpResponse(javaResponse, true)
+		serializedResp, err := httputil.DumpResponse(downstream, true)
 		if err != nil {
 			return err
 		}
@@ -57,7 +52,7 @@ func getRequestId(req *http.Request) (string, error) {
 	return maybeRequestId, nil
 }
 
-func indempotencyHandler(r repository, downstreamURL *url.URL, allowedEndpoints []string) http.HandlerFunc {
+func indempotencyHandler(r Repository, downstreamURL *url.URL, allowedEndpoints []string) http.HandlerFunc {
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 
 	proxy.ErrorHandler = errHandler
