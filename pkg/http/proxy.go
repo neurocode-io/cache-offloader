@@ -16,17 +16,12 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func responseHandler(requestId string, r storage.Repository) func(*http.Response) error {
+func responseHandler(requestId string, repo storage.Repository) func(*http.Response) error {
 
 	return func(downstream *http.Response) error {
 		log.Printf("Got response from downstream service %v", downstream)
-		// TODO save the response to redis with requestId as key
-		serializedResp, err := httputil.DumpResponse(downstream, true)
-		if err != nil {
-			return err
-		}
-
-		if err := r.Store(requestId, serializedResp); err != nil {
+		// TODO save the response to redis with requestId as key (Done ?)
+		if err := repo.Store(requestId, downstream); err != nil {
 			return err
 		}
 
@@ -45,7 +40,7 @@ func getRequestId(req *http.Request) (string, error) {
 	return maybeRequestId, nil
 }
 
-func indempotencyHandler(r storage.Repository, downstreamURL *url.URL, allowedEndpoints []string) http.HandlerFunc {
+func indempotencyHandler(repo storage.Repository, downstreamURL *url.URL, allowedEndpoints []string) http.HandlerFunc {
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 
 	proxy.ErrorHandler = errHandler
@@ -66,9 +61,9 @@ func indempotencyHandler(r storage.Repository, downstreamURL *url.URL, allowedEn
 			return
 		}
 		// initialize proxyResponse callback
-		proxy.ModifyResponse = responseHandler(requestId, r)
+		proxy.ModifyResponse = responseHandler(requestId, repo)
 
-		result, err := r.LookUp(requestId)
+		result, err := repo.LookUp(requestId)
 		if err != nil {
 			proxy.ServeHTTP(res, req)
 			return
@@ -76,6 +71,5 @@ func indempotencyHandler(r storage.Repository, downstreamURL *url.URL, allowedEn
 
 		log.Printf("serving from memory requestId %v", requestId)
 		log.Printf("serving from memory requestId %v", result)
-
 	}
 }
