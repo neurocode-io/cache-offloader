@@ -4,22 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"time"
 
 	"dpd.de/indempotency-offloader/config"
 
 	"github.com/go-redis/redis/v8"
-)
-
-var (
-	ctx    = context.Background()
-	client = redis.NewClient(&redis.Options{
-		Addr:     strings.Join([]string{config.GetEnv("REDIS_HOST", "localhost"), config.GetEnv("REDIS_PORT", "6379")}, ":"),
-		Password: config.GetEnv("REDIS_PASSWORD", ""),
-		DB:       0,
-	})
 )
 
 type Repository interface {
@@ -29,22 +19,30 @@ type Repository interface {
 
 type RedisCache struct {
 	expirationSeconds time.Duration
+	ctx               context.Context
+	client            *redis.Client
 }
 
 func NewRedisCache(expirationSeconds time.Duration) Repository {
 	return &RedisCache{
 		expirationSeconds: expirationSeconds,
+		ctx:               context.Background(),
+		client: redis.NewClient(&redis.Options{
+			Addr:     strings.Join([]string{config.GetEnv("REDIS_HOST", "localhost"), config.GetEnv("REDIS_PORT", "6379")}, ":"),
+			Password: config.GetEnv("REDIS_PASSWORD", "development"),
+			DB:       0,
+		}),
 	}
 }
 
 func (c *RedisCache) Store(key string, resp *http.Response) error {
-	serializedResp, err := httputil.DumpResponse(resp, true)
+	jsonVal, err := json.Marshal(resp)
 
 	if err != nil {
 		return err
 	}
 
-	err = client.Set(ctx, key, serializedResp, c.expirationSeconds*time.Second).Err()
+	err = c.client.Set(c.ctx, key, jsonVal, c.expirationSeconds*time.Second).Err()
 
 	if err != nil {
 		return err
@@ -54,7 +52,7 @@ func (c *RedisCache) Store(key string, resp *http.Response) error {
 }
 
 func (c *RedisCache) LookUp(key string) (*http.Response, error) {
-	result, err := client.Get(ctx, key).Result()
+	result, err := c.client.Get(c.ctx, key).Result()
 
 	if err != nil {
 		return nil, err
