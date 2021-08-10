@@ -3,7 +3,7 @@ package client
 import (
 	"sync"
 
-	"dpd.de/indempotency-offloader/config"
+	"dpd.de/idempotency-offloader/config"
 	"github.com/go-redis/redis/v8"
 )
 

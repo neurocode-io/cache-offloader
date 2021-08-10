@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"dpd.de/indempotency-offloader/pkg/storage"
+	"dpd.de/idempotency-offloader/pkg/storage"
 )
 
 func ReadinessHandler(r storage.Repository) http.HandlerFunc {
@@ -14,7 +14,7 @@ func ReadinessHandler(r storage.Repository) http.HandlerFunc {
 		err := r.CheckConnection(req.Context())
 		if err != nil {
 			log.Println("Redis unavailable")
-			http.Error(res, "Redis unavailable", 503)
+			http.Error(res, "Redis unavailable", http.StatusServiceUnavailable)
 			return
 		}
 

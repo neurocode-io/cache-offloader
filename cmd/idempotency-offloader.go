@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"time"
 
-	"dpd.de/indempotency-offloader/config"
-	"dpd.de/indempotency-offloader/pkg/client"
-	"dpd.de/indempotency-offloader/pkg/http"
-	"dpd.de/indempotency-offloader/pkg/storage"
+	"dpd.de/idempotency-offloader/config"
+	"dpd.de/idempotency-offloader/pkg/client"
+	"dpd.de/idempotency-offloader/pkg/http"
+	"dpd.de/idempotency-offloader/pkg/storage"
 )
 
 func main() {
@@ -29,12 +29,12 @@ func main() {
 	r := client.NewRedis()
 	redisStore := storage.NewRepository(r.Client)
 
-	h.HandleFunc("/", http.IndempotencyHandler(redisStore, downstreamURL))
+	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))
 	h.HandleFunc("/probes/readiness", http.ReadinessHandler(redisStore))
 	h.HandleFunc("/probes/liveness", http.LivenessHandler)
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
-	log.Printf("Starting indempotency-offloader, listening: %s", thisServe)
-	log.Printf("Indempotency configured for the following endpoints: %v", allowedEndpoints)
+	log.Printf("Starting idempotency-offloader, listening: %s", thisServe)
+	log.Printf("Idempotency configured for the following endpoints: %v", allowedEndpoints)
 	log.Panicf(fmt.Sprint(h.ListenAndServe(thisServe, nil)))
 }

@@ -8,14 +8,14 @@ import (
 
 	"net/http"
 
-	"dpd.de/indempotency-offloader/pkg/client"
+	"dpd.de/idempotency-offloader/pkg/client"
 	"github.com/stretchr/testify/assert"
 )
 
 var repo = NewRepository(client.NewRedis().Client)
 
 func TestRedisRepository(t *testing.T) {
-	jsonVal, err := json.Marshal(http.Response{Status: "HelloTest", StatusCode: 200})
+	jsonVal, err := json.Marshal(http.Response{Status: "HelloTest", StatusCode: http.StatusOK})
 	if err != nil {
 		t.Error("Failed to json marshal")
 	}
@@ -27,10 +27,8 @@ func TestRedisRepository(t *testing.T) {
 
 	lookUpResult, err := repo.LookUp(context.TODO(), "testLookup")
 
-	if lookUpResult.Status != "HelloTest" {
-		t.Error("Test failed")
-	}
-
+	assert.Nil(t, err)
+	assert.Equal(t, lookUpResult.Status, "HelloTest")
 }
 
 func TestLookupResultAndErrorNil(t *testing.T) {

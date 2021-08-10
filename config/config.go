@@ -19,7 +19,7 @@ type ServerConfig struct {
 	Port             string
 	DownstreamHost   string
 	AllowedEndpoints []string
-	IndempotencyKeys []string
+	IdempotencyKeys  []string
 }
 type Config struct {
 	RedisConfig  RedisConfig
@@ -79,7 +79,7 @@ func New() *Config {
 			Port:             getEnv("SERVER_PORT", "8000"),
 			DownstreamHost:   getEnv("DOWNSTREAM_HOST", ""),
 			AllowedEndpoints: getEnvAsSlice("DOWNSTREAM_ALLOWED_ENDPOINTS"),
-			IndempotencyKeys: getEnvAsSlice("INDEMPOTENCY_KEYS"),
+			IdempotencyKeys:  getEnvAsSlice("IDEMPOTENCY_KEYS"),
 			FailureModeDeny:  getEnvAsBool("FAILURE_MODE_DENY", ""),
 		},
 		RedisConfig: RedisConfig{

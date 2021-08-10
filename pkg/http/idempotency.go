@@ -11,9 +11,9 @@ import (
 
 	"context"
 
-	"dpd.de/indempotency-offloader/config"
-	"dpd.de/indempotency-offloader/pkg/storage"
-	"dpd.de/indempotency-offloader/pkg/utils"
+	"dpd.de/idempotency-offloader/config"
+	"dpd.de/idempotency-offloader/pkg/storage"
+	"dpd.de/idempotency-offloader/pkg/utils"
 )
 
 func shouldProxyRequest(err error, result *http.Response, failureModeDeny bool) bool {
@@ -61,7 +61,7 @@ func getRequestId(headerKeys []string, req *http.Request) (string, error) {
 	return maybeRequestId, nil
 }
 
-func IndempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
+func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 	serverConfig := config.New().ServerConfig
 
@@ -75,11 +75,11 @@ func IndempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.H
 		}
 
 		ctx := req.Context()
-		requestId, err := getRequestId(serverConfig.IndempotencyKeys, req)
+		requestId, err := getRequestId(serverConfig.IdempotencyKeys, req)
 		if err != nil && serverConfig.FailureModeDeny {
-			log.Printf("missing %v headers", serverConfig.IndempotencyKeys)
+			log.Printf("missing %v headers", serverConfig.IdempotencyKeys)
 			res.WriteHeader(http.StatusBadRequest)
-			res.Write([]byte(fmt.Sprintf("missing %v headers in HTTP request", serverConfig.IndempotencyKeys)))
+			res.Write([]byte(fmt.Sprintf("missing %v headers in HTTP request", serverConfig.IdempotencyKeys)))
 			return
 		}
 

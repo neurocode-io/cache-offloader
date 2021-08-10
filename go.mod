@@ -1,4 +1,4 @@
-module dpd.de/indempotency-offloader
+module dpd.de/idempotency-offloader
 
 go 1.16
 

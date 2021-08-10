@@ -1,4 +1,4 @@
-# indempotency-offloader-sidecar
+# idempotency-sidecar-offloader
 
 
 # Dev
