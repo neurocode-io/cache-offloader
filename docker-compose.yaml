@@ -1,6 +1,12 @@
 version: "3.7"
 
 services:
+  httpbin:
+    init: true
+    ports:
+      - 5000:80
+    image: kennethreitz/httpbin:latest
+
   redis:
     init: true
     ports:
