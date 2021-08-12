@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"net/http"
 	"time"
 
+	"dpd.de/idempotency-offloader/pkg/entity"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -18,8 +18,8 @@ func NewRepository(redis *redis.Client) *redisRepository {
 	return &redisRepository{redis}
 }
 
-func (r *redisRepository) LookUp(ctx context.Context, key string) (*http.Response, error) {
-	ctx, _ = context.WithTimeout(ctx, 50*time.Millisecond)
+func (r *redisRepository) LookUp(ctx context.Context, key string) (*entity.ResponseBody, error) {
+	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
 	result, err := r.Get(ctx, key).Result()
 
 	if err == redis.Nil {
@@ -31,7 +31,7 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*http.Respons
 		return nil, err
 	}
 
-	response := http.Response{}
+	response := entity.ResponseBody{}
 	err = json.Unmarshal([]byte(result), &response)
 
 	if err != nil {
@@ -39,15 +39,20 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*http.Respons
 	}
 
 	return &response, nil
-
 }
 
-func (r *redisRepository) Store(ctx context.Context, key string, obj []byte) error {
-	ctx, _ = context.WithTimeout(ctx, 50*time.Millisecond)
+func (r *redisRepository) Store(ctx context.Context, key string, response *entity.ResponseBody) error {
+	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
+
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+
 	// purge stored values after 12 hours
 	expireationTime := 12 * time.Hour
 
-	err := r.Set(ctx, key, obj, expireationTime).Err()
+	err = r.Set(ctx, key, jsonResponse, expireationTime).Err()
 	if err != nil {
 		return err
 	}

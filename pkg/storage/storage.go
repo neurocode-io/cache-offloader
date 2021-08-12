@@ -2,11 +2,12 @@ package storage
 
 import (
 	"context"
-	"net/http"
+
+	"dpd.de/idempotency-offloader/pkg/entity"
 )
 
 type Repository interface {
-	LookUp(context.Context, string) (*http.Response, error)
-	Store(context.Context, string, []byte) error
+	LookUp(context.Context, string) (*entity.ResponseBody, error)
+	Store(context.Context, string, *entity.ResponseBody) error
 	CheckConnection(context.Context) error
 }
