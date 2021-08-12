@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -14,7 +15,8 @@ var repo = NewRepository(client.NewRedis().Client)
 
 func TestRedisRepository(t *testing.T) {
 	response := entity.ResponseBody{ID: 007, Message: "bar"}
-	err := repo.Store(context.TODO(), "testLookup", &response)
+	res, _ := json.Marshal(response)
+	err := repo.Store(context.TODO(), "testLookup", res)
 	if err != nil {
 		t.Error("Failed to set value")
 	}
@@ -41,11 +43,3 @@ func TestLookupTimeout(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 }
-
-// func TestStoreTimeout(t *testing.T) {
-// 	ctx := context.Background()
-// 	ctx, _ = context.WithTimeout(ctx, 1*time.Microsecond)
-// 	err := repo.Store(ctx, "doesNotExist", []byte("hello world"))
-
-// 	assert.Contains(t, err.Error(), "context deadline exceeded")
-// }

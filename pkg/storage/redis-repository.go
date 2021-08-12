@@ -41,18 +41,13 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*entity.Respo
 	return &response, nil
 }
 
-func (r *redisRepository) Store(ctx context.Context, key string, response *entity.ResponseBody) error {
+func (r *redisRepository) Store(ctx context.Context, key string, resp []byte /*response *entity.ResponseBody*/) error {
 	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
-
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
 
 	// purge stored values after 12 hours
 	expireationTime := 12 * time.Hour
 
-	err = r.Set(ctx, key, jsonResponse, expireationTime).Err()
+	err := r.Set(ctx, key, resp, expireationTime).Err()
 	if err != nil {
 		return err
 	}

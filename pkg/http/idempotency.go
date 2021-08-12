@@ -38,7 +38,12 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 		var body entity.ResponseBody
 		json.NewDecoder(io.Reader(response.Body)).Decode(&body)
 
-		if err := repo.Store(ctx, requestId, &body); err != nil {
+		bodJson, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+
+		if err = repo.Store(ctx, requestId, bodJson); err != nil {
 			return err
 		}
 
@@ -92,8 +97,10 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			body, _ := json.Marshal(entity.ResponseBody{ID: random, Message: strconv.Itoa(random)})
 
 			res.Write(body)
-			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo)
-			proxy.ServeHTTP(res, req)
+			///////////////////////////////////////////////////////////
+			//proxy.ModifyResponse = cacheResponse(ctx, requestId, repo)
+			//proxy.ServeHTTP(res, req)
+			repo.Store(ctx, requestId, body)
 			return
 		}
 

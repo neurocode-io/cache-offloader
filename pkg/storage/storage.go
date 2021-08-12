@@ -8,6 +8,6 @@ import (
 
 type Repository interface {
 	LookUp(context.Context, string) (*entity.ResponseBody, error)
-	Store(context.Context, string, *entity.ResponseBody) error
+	Store(context.Context, string, []byte) error
 	CheckConnection(context.Context) error
 }
