@@ -4,19 +4,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 
 	"context"
 
 	"dpd.de/idempotency-offloader/config"
+	"dpd.de/idempotency-offloader/pkg/entity"
 	"dpd.de/idempotency-offloader/pkg/storage"
 	"dpd.de/idempotency-offloader/pkg/utils"
 )
 
-func shouldProxyRequest(err error, result *http.Response, failureModeDeny bool) bool {
+func shouldProxyRequest(err error, result *entity.ResponseBody, failureModeDeny bool) bool {
 	// if err and result = nil storage did not find the key thus we should forward the request
 	// if we allow for storage errors (err and failureModeDeny) we should also forward the request
 	return (err == nil && result == nil) || (err != nil && failureModeDeny == false)
@@ -28,15 +32,13 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 }
 
 func cacheResponse(ctx context.Context, requestId string, repo storage.Repository) func(*http.Response) error {
-	return func(downstream *http.Response) error {
-		log.Printf("Got response from downstream service %v", downstream)
+	return func(response *http.Response) error {
+		log.Printf("Got response from downstream service %v", response)
 
-		serializedResp, err := httputil.DumpResponse(downstream, true)
-		if err != nil {
-			return err
-		}
+		var body entity.ResponseBody
+		json.NewDecoder(io.Reader(response.Body)).Decode(&body)
 
-		if err := repo.Store(ctx, requestId, serializedResp); err != nil {
+		if err := repo.Store(ctx, requestId, &body); err != nil {
 			return err
 		}
 
@@ -86,6 +88,10 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		result, err := repo.LookUp(ctx, requestId)
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
 			// initialize proxyResponse callback
+			random := rand.Intn(100)
+			body, _ := json.Marshal(entity.ResponseBody{ID: random, Message: strconv.Itoa(random)})
+
+			res.Write(body)
 			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo)
 			proxy.ServeHTTP(res, req)
 			return
@@ -100,8 +106,8 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 		log.Printf("serving from memory requestId %v", requestId)
 
-		res.WriteHeader(result.StatusCode)
-		json.NewEncoder(res).Encode(result.Body)
+		res.WriteHeader(http.StatusOK)
+		json.NewEncoder(res).Encode(result)
 
 	}
 }
