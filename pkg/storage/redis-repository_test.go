@@ -7,15 +7,19 @@ import (
 	"time"
 
 	"dpd.de/idempotency-offloader/pkg/client"
-	"dpd.de/idempotency-offloader/pkg/entity"
 	"github.com/stretchr/testify/assert"
 )
 
 var repo = NewRepository(client.NewRedis().Client)
 
+type TestResponseBody struct {
+	ID      int
+	Message string
+}
+
 func TestRedisRepository(t *testing.T) {
-	response := entity.ResponseBody{ID: 007, Message: "bar"}
-	res, _ := json.Marshal(response)
+	responseBody := TestResponseBody{ID: 007, Message: "bar"}
+	res, _ := json.Marshal(responseBody)
 	err := repo.Store(context.TODO(), "testLookup", res)
 	if err != nil {
 		t.Error("Failed to set value")
@@ -23,9 +27,11 @@ func TestRedisRepository(t *testing.T) {
 
 	lookUpResult, err := repo.LookUp(context.TODO(), "testLookup")
 
+	outBody := TestResponseBody{}
+	json.Unmarshal(lookUpResult, &outBody)
 	assert.Nil(t, err)
-	assert.Equal(t, lookUpResult.ID, 007)
-	assert.Equal(t, lookUpResult.Message, "bar")
+	assert.Equal(t, outBody.ID, 007)
+	assert.Equal(t, outBody.Message, "bar")
 }
 
 func TestLookupResultAndErrorNil(t *testing.T) {

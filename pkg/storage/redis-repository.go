@@ -2,11 +2,9 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
-	"dpd.de/idempotency-offloader/pkg/entity"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -18,7 +16,7 @@ func NewRepository(redis *redis.Client) *redisRepository {
 	return &redisRepository{redis}
 }
 
-func (r *redisRepository) LookUp(ctx context.Context, key string) (*entity.ResponseBody, error) {
+func (r *redisRepository) LookUp(ctx context.Context, key string) ([]byte, error) {
 	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
 	result, err := r.Get(ctx, key).Result()
 
@@ -31,17 +29,10 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*entity.Respo
 		return nil, err
 	}
 
-	response := entity.ResponseBody{}
-	err = json.Unmarshal([]byte(result), &response)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &response, nil
+	return []byte(result), nil
 }
 
-func (r *redisRepository) Store(ctx context.Context, key string, resp []byte /*response *entity.ResponseBody*/) error {
+func (r *redisRepository) Store(ctx context.Context, key string, resp []byte) error {
 	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
 
 	// purge stored values after 12 hours
