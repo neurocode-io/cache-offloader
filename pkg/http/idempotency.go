@@ -18,7 +18,7 @@ import (
 	"dpd.de/idempotency-offloader/pkg/utils"
 )
 
-func shouldProxyRequest(err error, result []byte, failureModeDeny bool) bool {
+func shouldProxyRequest(err error, result *storage.Response, failureModeDeny bool) bool {
 	// if err and result = nil storage did not find the key thus we should forward the request
 	// if we allow for storage errors (err and failureModeDeny) we should also forward the request
 	return (err == nil && result == nil) || (err != nil && failureModeDeny == false)
@@ -34,10 +34,16 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 		log.Printf("Got response from downstream service %v", response)
 
 		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		header := response.Header
 		newBody := ioutil.NopCloser(bytes.NewReader(body))
+
 		response.Body = newBody
 
-		if err = repo.Store(ctx, requestId, body); err != nil {
+		if err = repo.Store(ctx, requestId, &storage.Response{Body: body, Header: header}); err != nil {
 			return err
 		}
 
@@ -102,10 +108,10 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 		log.Printf("serving from memory requestId %v", requestId)
 
-		res.Header().Add("Connection", "keep-alive")
-		res.Header().Add("Content-Type", "application/json")
-		res.Header().Add("Access-Control-Allow-Origin", "*")
-		res.Header().Add("Access-Control-Allow-Credentials", "true")
-		res.Write(result)
+		for key, values := range result.Header {
+			res.Header()[key] = values
+		}
+
+		res.Write(result.Body)
 	}
 }

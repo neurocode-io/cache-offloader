@@ -1,3 +1,4 @@
 app
 .DS_Store
 cp.out
+__debug_bin

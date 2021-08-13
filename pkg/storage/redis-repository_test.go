@@ -17,10 +17,13 @@ type TestResponseBody struct {
 	Message string
 }
 
+var TestHeader map[string][]string = map[string][]string{}
+
 func TestRedisRepository(t *testing.T) {
+	TestHeader["test"] = []string{"test"}
 	responseBody := TestResponseBody{ID: 007, Message: "bar"}
-	res, _ := json.Marshal(responseBody)
-	err := repo.Store(context.TODO(), "testLookup", res)
+	body, _ := json.Marshal(responseBody)
+	err := repo.Store(context.TODO(), "testLookup", &Response{Body: body, Header: TestHeader})
 	if err != nil {
 		t.Error("Failed to set value")
 	}
@@ -28,10 +31,12 @@ func TestRedisRepository(t *testing.T) {
 	lookUpResult, err := repo.LookUp(context.TODO(), "testLookup")
 
 	outBody := TestResponseBody{}
-	json.Unmarshal(lookUpResult, &outBody)
+	json.Unmarshal(lookUpResult.Body, &outBody)
+
 	assert.Nil(t, err)
 	assert.Equal(t, outBody.ID, 007)
 	assert.Equal(t, outBody.Message, "bar")
+	assert.Equal(t, lookUpResult.Header["test"][0], "test")
 }
 
 func TestLookupResultAndErrorNil(t *testing.T) {
