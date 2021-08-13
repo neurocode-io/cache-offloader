@@ -77,14 +77,14 @@ func New() *Config {
 	return &Config{
 		ServerConfig: ServerConfig{
 			Port:             getEnv("SERVER_PORT", "8000"),
-			DownstreamHost:   getEnv("DOWNSTREAM_HOST", "http://localhost:5000"),
+			DownstreamHost:   getEnv("DOWNSTREAM_HOST", ""),
 			AllowedEndpoints: getEnvAsSlice("DOWNSTREAM_ALLOWED_ENDPOINTS"),
 			IdempotencyKeys:  getEnvAsSlice("IDEMPOTENCY_KEYS"),
-			FailureModeDeny:  getEnvAsBool("FAILURE_MODE_DENY", "true"),
+			FailureModeDeny:  getEnvAsBool("FAILURE_MODE_DENY", ""),
 		},
 		RedisConfig: RedisConfig{
-			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", "localhost"), getEnv("REDIS_PORT", "6379")),
-			Password:         getEnv("REDIS_PASSWORD", "development"),
+			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
+			Password:         getEnv("REDIS_PASSWORD", ""),
 			Database:         getEnvAsInt("REDIS_DB", "0"),
 		},
 	}
