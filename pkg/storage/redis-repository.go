@@ -10,16 +10,17 @@ import (
 )
 
 type Response struct {
-	Header map[string][]string `json:"header"`
-	Body   []byte              `json:"body"`
+	Header map[string][]string
+	Body   []byte
 }
 
 type redisRepository struct {
 	*redis.Client
+	expirationTime time.Duration
 }
 
-func NewRepository(redis *redis.Client) *redisRepository {
-	return &redisRepository{redis}
+func NewRepository(redis *redis.Client, expirationTime time.Duration) *redisRepository {
+	return &redisRepository{redis, expirationTime}
 }
 
 func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
@@ -44,15 +45,12 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 func (r *redisRepository) Store(ctx context.Context, key string, resp *Response) error {
 	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
 
-	// purge stored values after 12 hours
-	expireationTime := 12 * time.Hour
-
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
 
-	err = r.Set(ctx, key, storedResp, expireationTime).Err()
+	err = r.Set(ctx, key, storedResp, r.expirationTime).Err()
 	if err != nil {
 		return err
 	}

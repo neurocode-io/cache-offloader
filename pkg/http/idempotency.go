@@ -32,6 +32,10 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 func cacheResponse(ctx context.Context, requestId string, repo storage.Repository) func(*http.Response) error {
 	return func(response *http.Response) error {
 		log.Printf("Got response from downstream service %v", response)
+		if response.StatusCode >= 500 {
+			log.Printf("Wont cache 5XX downstream responses")
+			return nil
+		}
 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
