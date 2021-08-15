@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"dpd.de/idempotency-offloader/config"
 	"dpd.de/idempotency-offloader/pkg/client"
@@ -17,7 +18,7 @@ func TestIdempotency(t *testing.T) {
 	assert.Nil(t, err)
 
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client)
+	redisStore := storage.NewRepository(r.Client, 1*time.Hour)
 
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
