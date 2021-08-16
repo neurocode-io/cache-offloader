@@ -18,7 +18,7 @@ func TestIdempotency(t *testing.T) {
 	assert.Nil(t, err)
 
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, 1*time.Hour)
+	redisStore := storage.NewRepository(r.Client, 1*time.Hour, 1*time.Second)
 
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()

@@ -60,7 +60,7 @@ func (r *redisRepository) Store(ctx context.Context, key string, resp *Response)
 }
 
 func (r *redisRepository) Delete(ctx context.Context, key string) error {
-	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
+	ctx, _ = context.WithTimeout(ctx, r.commandTimeout)
 
 	err := r.Del(ctx, key).Err()
 	if err != nil {
