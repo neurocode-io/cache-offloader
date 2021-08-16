@@ -29,14 +29,21 @@ func TestRedisRepository(t *testing.T) {
 	}
 
 	lookUpResult, err := repo.LookUp(context.TODO(), "testLookup")
+	assert.Nil(t, err)
 
 	outBody := TestResponseBody{}
 	json.Unmarshal(lookUpResult.Body, &outBody)
 
-	assert.Nil(t, err)
 	assert.Equal(t, outBody.ID, 007)
 	assert.Equal(t, outBody.Message, "bar")
 	assert.Equal(t, lookUpResult.Header["test"][0], "test")
+
+	err = repo.Delete(context.TODO(), "testLookup")
+	assert.Nil(t, err)
+
+	lookUpResult, err = repo.LookUp(context.TODO(), "testLookup")
+	assert.Nil(t, err)
+	assert.Nil(t, lookUpResult)
 }
 
 func TestLookupResultAndErrorNil(t *testing.T) {

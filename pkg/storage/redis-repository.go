@@ -59,6 +59,17 @@ func (r *redisRepository) Store(ctx context.Context, key string, resp *Response)
 	return nil
 }
 
+func (r *redisRepository) Delete(ctx context.Context, key string) error {
+	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
+
+	err := r.Del(ctx, key).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *redisRepository) CheckConnection(ctx context.Context) error {
 	return r.Ping(ctx).Err()
 }
