@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var repo = NewRepository(client.NewRedis().Client, 1*time.Second)
+var repo = NewRepository(client.NewRedis().Client, 1*time.Second, 1*time.Second)
 
 type TestResponseBody struct {
 	ID      int

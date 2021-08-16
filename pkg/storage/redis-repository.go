@@ -17,14 +17,15 @@ type Response struct {
 type redisRepository struct {
 	*redis.Client
 	expirationTime time.Duration
+	commandTimeout time.Duration
 }
 
-func NewRepository(redis *redis.Client, expirationTime time.Duration) *redisRepository {
-	return &redisRepository{redis, expirationTime}
+func NewRepository(redis *redis.Client, expirationTime time.Duration, commandTimeout time.Duration) *redisRepository {
+	return &redisRepository{redis, expirationTime, commandTimeout}
 }
 
 func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
-	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
+	ctx, _ = context.WithTimeout(ctx, r.commandTimeout)
 	result, err := r.Get(ctx, key).Result()
 
 	if err == redis.Nil {
@@ -43,7 +44,7 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 }
 
 func (r *redisRepository) Store(ctx context.Context, key string, resp *Response) error {
-	ctx, _ = context.WithTimeout(ctx, 200*time.Millisecond)
+	ctx, _ = context.WithTimeout(ctx, r.commandTimeout)
 
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
