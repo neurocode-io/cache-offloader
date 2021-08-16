@@ -44,5 +44,6 @@ func TestIdempotency(t *testing.T) {
 	assert.Equal(t, newRes.Body, res.Body)
 	assert.Equal(t, newRes.Header(), res.Header())
 
-	redisStore.Delete(req.Context(), "TestIdempotency")
+	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
+
 }

@@ -38,7 +38,7 @@ func TestRedisRepository(t *testing.T) {
 	assert.Equal(t, outBody.Message, "bar")
 	assert.Equal(t, lookUpResult.Header["test"][0], "test")
 
-	err = repo.Delete(context.TODO(), "testLookup")
+	client.NewRedis().Client.Del(context.TODO(), "testLookup")
 	assert.Nil(t, err)
 
 	lookUpResult, err = repo.LookUp(context.TODO(), "testLookup")
