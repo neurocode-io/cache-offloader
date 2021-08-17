@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var repo = NewRepository(client.NewRedis().Client, 1*time.Second)
+var repo = NewRepository(client.NewRedis().Client, 1*time.Second, 1*time.Second)
 
 type TestResponseBody struct {
 	ID      int
@@ -38,7 +38,7 @@ func TestRedisRepository(t *testing.T) {
 	assert.Equal(t, outBody.Message, "bar")
 	assert.Equal(t, lookUpResult.Header["test"][0], "test")
 
-	err = repo.Delete(context.TODO(), "testLookup")
+	client.NewRedis().Client.Del(context.TODO(), "testLookup")
 	assert.Nil(t, err)
 
 	lookUpResult, err = repo.LookUp(context.TODO(), "testLookup")

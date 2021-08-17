@@ -27,8 +27,9 @@ func main() {
 		log.Panic(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
 	}
 	r := client.NewRedis()
-	expirationTime := 12 * time.Hour
-	redisStore := storage.NewRepository(r.Client, expirationTime)
+	expirationTime := config.RedisConfig.ExpirationTimeHour * time.Hour
+	commandTimeout := config.RedisConfig.CommandTimeoutMillisecond * time.Millisecond
+	redisStore := storage.NewRepository(r.Client, commandTimeout, expirationTime)
 
 	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))
 	h.HandleFunc("/probes/readiness", http.ReadinessHandler(redisStore))

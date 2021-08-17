@@ -6,12 +6,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type RedisConfig struct {
-	ConnectionString string
-	Password         string
-	Database         int
+	ConnectionString          string
+	Password                  string
+	Database                  int
+	ExpirationTimeHour        time.Duration
+	CommandTimeoutMillisecond time.Duration
 }
 
 type ServerConfig struct {
@@ -83,9 +86,11 @@ func New() *Config {
 			FailureModeDeny:  getEnvAsBool("FAILURE_MODE_DENY", ""),
 		},
 		RedisConfig: RedisConfig{
-			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
-			Password:         getEnv("REDIS_PASSWORD", ""),
-			Database:         getEnvAsInt("REDIS_DB", "0"),
+			ConnectionString:          fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
+			Password:                  getEnv("REDIS_PASSWORD", ""),
+			Database:                  getEnvAsInt("REDIS_DB", "0"),
+			CommandTimeoutMillisecond: time.Duration(getEnvAsInt("REDIS_COMMAND_TIMEOUT", "50")),
+			ExpirationTimeHour:        time.Duration(getEnvAsInt("REDIS_EXPIRATION_TIME_HOUR", "12")),
 		},
 	}
 }
