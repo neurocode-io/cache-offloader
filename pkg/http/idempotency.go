@@ -33,7 +33,7 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 	return func(response *http.Response) error {
 		log.Printf("Got response from downstream service %v", response)
 		if response.StatusCode >= 500 {
-			log.Printf("Wont cache 5XX downstream responses")
+			log.Printf("Won't cache 5XX downstream responses")
 			return nil
 		}
 
