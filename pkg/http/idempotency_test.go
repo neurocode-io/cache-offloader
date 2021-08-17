@@ -25,7 +25,7 @@ func TestIdempotency(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/headers", nil)
 
-	redisStore.Delete(req.Context(), "TestIdempotency")
+	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
 
 	req.Header.Set("request-id", "TestIdempotency")
 	req.Header.Set("x-b3-traceid", "test1234")
@@ -56,13 +56,16 @@ func Test5xxResponses(t *testing.T) {
 	assert.Nil(t, err)
 
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, 1*time.Hour)
+	redisStore := storage.NewRepository(r.Client, 1*time.Hour, 1*time.Second)
 
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
 
 	req, _ := http.NewRequest("GET", "/status/500", nil)
 	req.Header.Set("request-id", "Test5xxResponses")
+
+	client.NewRedis().Client.Del(req.Context(), "Test5xxResponses")
+
 	handler.ServeHTTP(res, req)
 
 	assert.Equal(t, res.Code, 500)
@@ -78,6 +81,4 @@ func Test5xxResponses(t *testing.T) {
 	handler.ServeHTTP(newRes, req)
 	// different time means it was not cached
 	assert.NotEqual(t, newRes.Header()["Date"], res.Header()["Date"])
-
-	redisStore.Delete(req.Context(), "Test5xxResponses")
 }
