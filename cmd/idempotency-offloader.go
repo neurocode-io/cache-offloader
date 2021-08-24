@@ -34,6 +34,7 @@ func main() {
 	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))
 	h.HandleFunc("/probes/readiness", http.ReadinessHandler(redisStore))
 	h.HandleFunc("/probes/liveness", http.LivenessHandler)
+	h.Handle("/metrics", http.MetricsHandler())
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
 	log.Printf("Starting idempotency-offloader, listening: %s", thisServe)

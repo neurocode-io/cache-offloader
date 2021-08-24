@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 
 	"context"
 
@@ -26,19 +27,28 @@ func shouldProxyRequest(err error, result *storage.Response, failureModeDeny boo
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	log.Printf("Error occured: %v", err)
-	http.Error(res, "Something bad happened", http.StatusBadGateway)
+
+	status := http.StatusBadGateway
+
+	http.Error(res, "Something bad happened", status)
+	StatusCounter.WithLabelValues(strconv.Itoa(status)).Inc()
 }
 
 func cacheResponse(ctx context.Context, requestId string, repo storage.Repository) func(*http.Response) error {
 	return func(response *http.Response) error {
 		log.Printf("Got response from downstream service %v", response)
+		StatusCounter.WithLabelValues(strconv.Itoa(response.StatusCode)).Inc()
+
 		if response.StatusCode >= 500 {
 			log.Printf("Won't cache 5XX downstream responses")
 			return nil
 		}
 
+		ResponseSourceCounter.WithLabelValues(ServedFromServer).Inc()
+
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
+			StorageCounter.WithLabelValues(storage.UnknownError).Inc()
 			return err
 		}
 
@@ -48,8 +58,11 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 		response.Body = newBody
 
 		if err = repo.Store(ctx, requestId, &storage.Response{Body: body, Header: header}); err != nil {
+			StorageCounter.WithLabelValues(storage.StorageError).Inc()
 			return err
 		}
+
+		StorageCounter.WithLabelValues(storage.Success).Inc()
 
 		return nil
 	}
@@ -91,10 +104,18 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			log.Printf("missing %v headers", serverConfig.IdempotencyKeys)
 			res.WriteHeader(http.StatusBadRequest)
 			res.Write([]byte(fmt.Sprintf("missing %v headers in HTTP request", serverConfig.IdempotencyKeys)))
+
+			StatusCounter.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Inc()
+
 			return
 		}
 
 		result, err := repo.LookUp(ctx, requestId)
+
+		if err != nil {
+			StorageCounter.WithLabelValues(storage.LookUpError).Inc()
+		}
+
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
 			// initialize proxyResponse callback
 			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo)
@@ -105,8 +126,15 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 		if err != nil && serverConfig.FailureModeDeny {
 			log.Printf("Storage did not respond in time or error occured: %v", err)
-			res.WriteHeader(http.StatusBadGateway)
+
+			status := http.StatusBadGateway
+
+			res.WriteHeader(status)
 			res.Write([]byte("Storage did not respond in time or error occured"))
+
+			StatusCounter.WithLabelValues(strconv.Itoa(status)).Inc()
+			StorageCounter.WithLabelValues(storage.Timeout).Inc()
+
 			return
 		}
 
@@ -116,6 +144,10 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			res.Header()[key] = values
 		}
 
+		StatusCounter.WithLabelValues(strconv.Itoa(http.StatusOK)).Inc()
+		ResponseSourceCounter.WithLabelValues(ServedFromMemory).Inc()
+
 		res.Write(result.Body)
+
 	}
 }

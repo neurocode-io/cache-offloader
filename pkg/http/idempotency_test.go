@@ -68,7 +68,7 @@ func Test5xxResponses(t *testing.T) {
 
 	handler.ServeHTTP(res, req)
 
-	assert.Equal(t, res.Code, 500)
+	assert.Equal(t, res.Code, http.StatusInternalServerError)
 	assert.Equal(t, res.Header()["Access-Control-Allow-Credentials"], []string{"true"})
 	assert.NotNil(t, res.Header()["Date"])
 	assert.Equal(t, res.Header()["Content-Length"], []string{"0"})
