@@ -22,7 +22,7 @@ import (
 func shouldProxyRequest(err error, result *storage.Response, failureModeDeny bool) bool {
 	// if err and result = nil storage did not find the key thus we should forward the request
 	// if we allow for storage errors (err and failureModeDeny) we should also forward the request
-	return (err == nil && result == nil) || (err != nil && failureModeDeny == false)
+	return (err == nil && result == nil) || (err != nil && !failureModeDeny)
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
@@ -93,7 +93,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		// proxy the requests not in the allowedEndpoints list
-		if utils.VariableMatchesRegexIn(req.URL.Path, serverConfig.AllowedEndpoints) == false {
+		if !utils.VariableMatchesRegexIn(req.URL.Path, serverConfig.AllowedEndpoints) {
 			proxy.ServeHTTP(res, req)
 			return
 		}
