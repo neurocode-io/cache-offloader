@@ -13,7 +13,7 @@ import (
 func prepareTest(counter *prometheus.CounterVec, counterBaseName string) *httptest.ResponseRecorder {
 	handler := MetricsHandler()
 	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/metrics", nil)
+	req, _ := http.NewRequest("GET", "/management/prometheus", nil)
 
 	counter.WithLabelValues(counterBaseName + "1").Add(1)
 	counter.WithLabelValues(counterBaseName + "2").Add(2)
