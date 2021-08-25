@@ -23,22 +23,12 @@ func TestIdempotency(t *testing.T) {
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
 
-	req, _ := http.NewRequest("GET", "/headers", nil)
-
-	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
+	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
 
 	req.Header.Set("request-id", "TestIdempotency")
-	req.Header.Set("x-b3-traceid", "test1234")
 	handler.ServeHTTP(res, req)
 
 	assert.Equal(t, res.Code, http.StatusOK)
-	assert.Equal(t, res.Header()["Content-Type"], []string{"application/json"})
-	assert.Equal(t, res.Header()["Access-Control-Allow-Credentials"], []string{"true"})
-	assert.Equal(t, res.Header()["Server"], []string{"gunicorn/19.9.0"})
-	assert.NotNil(t, res.Header()["Date"])
-	assert.NotNil(t, res.Header()["Content-Length"])
-	assert.NotNil(t, res.Body)
-	assert.Greater(t, res.Body.Len(), 0)
 
 	newRes := httptest.NewRecorder()
 	handler.ServeHTTP(newRes, req)
@@ -64,17 +54,13 @@ func Test5xxResponses(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/status/500", nil)
 	req.Header.Set("request-id", "Test5xxResponses")
 
-	client.NewRedis().Client.Del(req.Context(), "Test5xxResponses")
-
 	handler.ServeHTTP(res, req)
 
 	assert.Equal(t, res.Code, http.StatusInternalServerError)
-	assert.Equal(t, res.Header()["Access-Control-Allow-Credentials"], []string{"true"})
-	assert.NotNil(t, res.Header()["Date"])
-	assert.Equal(t, res.Header()["Content-Length"], []string{"0"})
 
 	lookUpResult, err := redisStore.LookUp(req.Context(), "Test5xxResponses")
 	assert.Nil(t, lookUpResult)
+	assert.Nil(t, err)
 
 	newRes := httptest.NewRecorder()
 	time.Sleep(1 * time.Second)
@@ -96,9 +82,8 @@ func TestWrongRegexResponses(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/ShouldNotStore/", nil)
 	req.Header.Set("request-id", "ShouldNotStore")
 
-	client.NewRedis().Client.Del(req.Context(), "ShouldNotStore")
-
 	handler.ServeHTTP(res, req)
 	lookUpResult, err := redisStore.LookUp(req.Context(), "ShouldNotStore")
 	assert.Nil(t, lookUpResult)
+	assert.Nil(t, err)
 }
