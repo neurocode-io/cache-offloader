@@ -82,3 +82,23 @@ func Test5xxResponses(t *testing.T) {
 	// different time means it was not cached
 	assert.NotEqual(t, newRes.Header()["Date"], res.Header()["Date"])
 }
+
+func TestWrongRegexResponses(t *testing.T) {
+	downstreamURL, err := url.Parse(config.New().ServerConfig.DownstreamHost)
+	assert.Nil(t, err)
+
+	r := client.NewRedis()
+	redisStore := storage.NewRepository(r.Client, 1*time.Hour, 1*time.Second)
+
+	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
+	res := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("GET", "/ShouldNotStore/", nil)
+	req.Header.Set("request-id", "ShouldNotStore")
+
+	client.NewRedis().Client.Del(req.Context(), "ShouldNotStore")
+
+	handler.ServeHTTP(res, req)
+	lookUpResult, err := redisStore.LookUp(req.Context(), "ShouldNotStore")
+	assert.Nil(t, lookUpResult)
+}
