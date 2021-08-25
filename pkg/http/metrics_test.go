@@ -3,7 +3,6 @@ package http
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -11,14 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func prepareTest(counter *prometheus.CounterVec, testCounterStart int) *httptest.ResponseRecorder {
+func prepareTest(counter *prometheus.CounterVec, counterBaseName string) *httptest.ResponseRecorder {
 	handler := MetricsHandler()
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/metrics", nil)
 
-	counter.WithLabelValues("Test" + strconv.Itoa(testCounterStart)).Add(4)
-	counter.WithLabelValues("Test" + strconv.Itoa(testCounterStart+1)).Add(2)
-	counter.WithLabelValues("Test" + strconv.Itoa(testCounterStart+2)).Add(3)
+	counter.WithLabelValues(counterBaseName + "1").Add(1)
+	counter.WithLabelValues(counterBaseName + "2").Add(2)
+	counter.WithLabelValues(counterBaseName + "3").Add(3)
 
 	handler.ServeHTTP(res, req)
 
@@ -26,31 +25,31 @@ func prepareTest(counter *prometheus.CounterVec, testCounterStart int) *httptest
 }
 
 func TestStatusCounter(t *testing.T) {
-	res := prepareTest(StatusCounter, 1)
+	res := prepareTest(StatusCounter, "StatusTest")
 
 	assert.True(t, strings.Contains(string(res.Body.Bytes()), "# HELP http_request_to_downstream_urls Number of downstream requests by status"))
 	assert.True(t, strings.Contains(string(res.Body.Bytes()), "# TYPE http_request_to_downstream_urls counter"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_request_to_downstream_urls{status=\"Test1\"} 4"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_request_to_downstream_urls{status=\"Test2\"} 2"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_request_to_downstream_urls{status=\"Test3\"} 3"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_request_to_downstream_urls{status=\"StatusTest1\"} 1"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_request_to_downstream_urls{status=\"StatusTest2\"} 2"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_request_to_downstream_urls{status=\"StatusTest3\"} 3"))
 }
 
 func TestStorageCounter(t *testing.T) {
-	res := prepareTest(StorageCounter, 4)
+	res := prepareTest(StorageCounter, "StorageTest")
 
 	assert.True(t, strings.Contains(string(res.Body.Bytes()), "# HELP cached_http_requests Number of cached http requests by status."))
 	assert.True(t, strings.Contains(string(res.Body.Bytes()), "# TYPE cached_http_requests counter"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "cached_http_requests{status=\"Test4\"} 4"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "cached_http_requests{status=\"Test5\"} 2"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "cached_http_requests{status=\"Test6\"} 3"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "cached_http_requests{status=\"StorageTest1\"} 1"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "cached_http_requests{status=\"StorageTest2\"} 2"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "cached_http_requests{status=\"StorageTest3\"} 3"))
 }
 
 func TestResponseSourceCounter(t *testing.T) {
-	res := prepareTest(ResponseSourceCounter, 7)
+	res := prepareTest(ResponseSourceCounter, "ResSourceTest")
 
 	assert.True(t, strings.Contains(string(res.Body.Bytes()), "# HELP http_responses Number of http responses with status<500 by source."))
 	assert.True(t, strings.Contains(string(res.Body.Bytes()), "# TYPE http_responses counter"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_responses{source=\"Test7\"} 4"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_responses{source=\"Test8\"} 2"))
-	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_responses{source=\"Test9\"} 3"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_responses{source=\"ResSourceTest1\"} 1"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_responses{source=\"ResSourceTest2\"} 2"))
+	assert.True(t, strings.Contains(string(res.Body.Bytes()), "http_responses{source=\"ResSourceTest3\"} 3"))
 }
