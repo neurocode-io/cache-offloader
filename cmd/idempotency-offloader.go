@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	h "net/http"
@@ -15,9 +14,6 @@ import (
 )
 
 func main() {
-
-	ctx := context.Background()
-	ctx, _ = context.WithTimeout(ctx, 100*time.Millisecond)
 
 	config := config.New()
 	thisPort := config.ServerConfig.Port
