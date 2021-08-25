@@ -12,7 +12,7 @@ type endpointTests []struct {
 }
 
 func TestAllowedEndoints(t *testing.T) {
-	allowedEndpoints := []string{"/management/loggers/*", "/api-docs/*"}
+	allowedEndpoints := []string{"/management/loggers//*", "/api-docs/*"}
 
 	assert.Equal(t, VariableMatchesRegexIn("/management/loggers/configuration", allowedEndpoints), true)
 	assert.Equal(t, VariableMatchesRegexIn("/management/loggersbb/configuration", allowedEndpoints), false)
