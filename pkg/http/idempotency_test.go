@@ -18,7 +18,7 @@ func TestIdempotency(t *testing.T) {
 	assert.Nil(t, err)
 
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, 1*time.Hour, 1*time.Second)
+	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
 
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
@@ -46,7 +46,7 @@ func Test5xxResponses(t *testing.T) {
 	assert.Nil(t, err)
 
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, 1*time.Hour, 1*time.Second)
+	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
 
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
@@ -74,7 +74,7 @@ func TestWrongRegexResponses(t *testing.T) {
 	assert.Nil(t, err)
 
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, 1*time.Hour, 1*time.Second)
+	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
 
 	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()

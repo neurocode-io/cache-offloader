@@ -22,7 +22,14 @@ func AddCounterVec(opts *CounterVecOpts) *prometheus.CounterVec {
 		[]string{opts.LabelNames},
 	)
 
-	prometheus.MustRegister(counter)
+	if err := prometheus.Register(counter); err != nil {
+		if alreadyRegistered, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			counter = alreadyRegistered.ExistingCollector.(*prometheus.CounterVec)
+			return counter
+		} else {
+			return nil
+		}
+	}
 
 	return counter
 }

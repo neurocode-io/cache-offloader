@@ -15,6 +15,14 @@ var (
 	counter *prometheus.CounterVec
 )
 
+type ExpirationTime struct {
+	Value time.Duration
+}
+
+type CommandTimeout struct {
+	Value time.Duration
+}
+
 type Response struct {
 	Header map[string][]string
 	Body   []byte
@@ -22,11 +30,11 @@ type Response struct {
 
 type redisRepository struct {
 	*redis.Client
-	expirationTime time.Duration
-	commandTimeout time.Duration
+	expirationTime *ExpirationTime
+	commandTimeout *CommandTimeout
 }
 
-func NewRepository(redis *redis.Client, expirationTime time.Duration, commandTimeout time.Duration) *redisRepository {
+func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *redisRepository {
 	opts := metrics.CounterVecOpts{
 		Name:       "cached_http_requests",
 		Help:       "Number of cached http requests by status.",
@@ -38,7 +46,7 @@ func NewRepository(redis *redis.Client, expirationTime time.Duration, commandTim
 }
 
 func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
-	ctx, _ = context.WithTimeout(ctx, r.commandTimeout)
+	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 	result, err := r.Get(ctx, key).Result()
 
 	if err == redis.Nil {
@@ -58,14 +66,14 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 }
 
 func (r *redisRepository) Store(ctx context.Context, key string, resp *Response) error {
-	ctx, _ = context.WithTimeout(ctx, r.commandTimeout)
+	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
 
-	err = r.Set(ctx, key, storedResp, r.expirationTime).Err()
+	err = r.Set(ctx, key, storedResp, r.expirationTime.Value).Err()
 	if err != nil {
 		counter.WithLabelValues(StorageError).Inc()
 		return err
