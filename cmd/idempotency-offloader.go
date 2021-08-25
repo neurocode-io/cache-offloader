@@ -10,6 +10,7 @@ import (
 	"dpd.de/idempotency-offloader/config"
 	"dpd.de/idempotency-offloader/pkg/client"
 	"dpd.de/idempotency-offloader/pkg/http"
+	"dpd.de/idempotency-offloader/pkg/metrics"
 	"dpd.de/idempotency-offloader/pkg/storage"
 )
 
@@ -30,7 +31,7 @@ func main() {
 	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))
 	h.HandleFunc("/probes/readiness", http.ReadinessHandler(redisStore))
 	h.HandleFunc("/probes/liveness", http.LivenessHandler)
-	h.Handle("/management/prometheus", http.MetricsHandler())
+	h.Handle("/management/prometheus", metrics.MetricsHandler())
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
 	log.Printf("Starting idempotency-offloader, listening: %s", thisServe)

@@ -48,7 +48,6 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			StorageCounter.WithLabelValues(storage.UnknownError).Inc()
 			return err
 		}
 
@@ -58,11 +57,8 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 		response.Body = newBody
 
 		if err = repo.Store(ctx, requestId, &storage.Response{Body: body, Header: header}); err != nil {
-			StorageCounter.WithLabelValues(storage.StorageError).Inc()
 			return err
 		}
-
-		StorageCounter.WithLabelValues(storage.Success).Inc()
 
 		return nil
 	}
@@ -112,10 +108,6 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 		result, err := repo.LookUp(ctx, requestId)
 
-		if err != nil {
-			StorageCounter.WithLabelValues(storage.LookUpError).Inc()
-		}
-
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
 			// initialize proxyResponse callback
 			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo)
@@ -133,7 +125,6 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			res.Write([]byte("Storage did not respond in time or error occured"))
 
 			StatusCounter.WithLabelValues(strconv.Itoa(status)).Inc()
-			StorageCounter.WithLabelValues(storage.Timeout).Inc()
 
 			return
 		}
@@ -148,6 +139,5 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		ResponseSourceCounter.WithLabelValues(ServedFromMemory).Inc()
 
 		res.Write(result.Body)
-
 	}
 }
