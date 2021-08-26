@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type ExpirationTime struct {
@@ -22,17 +23,18 @@ type Response struct {
 	Body   []byte
 }
 
-type redisRepository struct {
+type RedisRepository struct {
 	*redis.Client
 	expirationTime *ExpirationTime
 	commandTimeout *CommandTimeout
+	counter        *prometheus.CounterVec
 }
 
 func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *redisRepository {
 	return &redisRepository{redis, expirationTime, commandTimeout}
 }
 
-func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
+func (r *RedisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 	result, err := r.Get(ctx, key).Result()
 
@@ -51,7 +53,7 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 	return &response, nil
 }
 
-func (r *redisRepository) Store(ctx context.Context, key string, resp *Response) error {
+func (r *RedisRepository) Store(ctx context.Context, key string, resp *Response) error {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 
 	storedResp, err := json.Marshal(resp)
@@ -67,6 +69,6 @@ func (r *redisRepository) Store(ctx context.Context, key string, resp *Response)
 	return nil
 }
 
-func (r *redisRepository) CheckConnection(ctx context.Context) error {
+func (r *RedisRepository) CheckConnection(ctx context.Context) error {
 	return r.Ping(ctx).Err()
 }
