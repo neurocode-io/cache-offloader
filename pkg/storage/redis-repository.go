@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type ExpirationTime struct {
@@ -27,11 +26,10 @@ type RedisRepository struct {
 	*redis.Client
 	expirationTime *ExpirationTime
 	commandTimeout *CommandTimeout
-	counter        *prometheus.CounterVec
 }
 
-func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *redisRepository {
-	return &redisRepository{redis, expirationTime, commandTimeout}
+func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *RedisRepository {
+	return &RedisRepository{redis, expirationTime, commandTimeout}
 }
 
 func (r *RedisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
