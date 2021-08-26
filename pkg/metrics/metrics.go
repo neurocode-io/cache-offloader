@@ -57,7 +57,7 @@ func (m *MetricCollector) CacheHit(statusCode int, method string) {
 		method = "NA"
 	}
 
-	m.httpMetrics.WithLabelValues(status, method, cacheHit)
+	m.httpMetrics.WithLabelValues(status, method, cacheHit).Inc()
 }
 
 func (m *MetricCollector) DownstreamHit(statusCode int, method string) {
@@ -66,6 +66,6 @@ func (m *MetricCollector) DownstreamHit(statusCode int, method string) {
 		method = "NA"
 	}
 
-	m.httpMetrics.WithLabelValues(status, method, downstreamHit)
+	m.httpMetrics.WithLabelValues(status, method, downstreamHit).Inc()
 
 }
