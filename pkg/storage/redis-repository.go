@@ -11,10 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var (
-	counter *prometheus.CounterVec
-)
-
 type ExpirationTime struct {
 	Value time.Duration
 }
@@ -28,24 +24,25 @@ type Response struct {
 	Body   []byte
 }
 
-type redisRepository struct {
+type RedisRepository struct {
 	*redis.Client
 	expirationTime *ExpirationTime
 	commandTimeout *CommandTimeout
+	counter        *prometheus.CounterVec
 }
 
-func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *redisRepository {
+func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *RedisRepository {
 	opts := metrics.CounterVecOpts{
 		Name:       "cached_http_requests",
 		Help:       "Number of cached http requests by status.",
 		LabelNames: "status",
 	}
 
-	counter = metrics.AddCounterVec(&opts)
-	return &redisRepository{redis, expirationTime, commandTimeout}
+	counter := metrics.AddCounterVec(&opts)
+	return &RedisRepository{redis, expirationTime, commandTimeout, counter}
 }
 
-func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
+func (r *RedisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 	result, err := r.Get(ctx, key).Result()
 
@@ -54,7 +51,7 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 	}
 
 	if err != nil {
-		counter.WithLabelValues(LookUpError).Inc()
+		r.counter.WithLabelValues(LookUpError).Inc()
 		log.Printf("Redis-repository LookUp error: %v", err)
 		return nil, err
 	}
@@ -65,7 +62,7 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 	return &response, nil
 }
 
-func (r *redisRepository) Store(ctx context.Context, key string, resp *Response) error {
+func (r *RedisRepository) Store(ctx context.Context, key string, resp *Response) error {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 
 	storedResp, err := json.Marshal(resp)
@@ -75,15 +72,15 @@ func (r *redisRepository) Store(ctx context.Context, key string, resp *Response)
 
 	err = r.Set(ctx, key, storedResp, r.expirationTime.Value).Err()
 	if err != nil {
-		counter.WithLabelValues(StorageError).Inc()
+		r.counter.WithLabelValues(StorageError).Inc()
 		return err
 	}
 
-	counter.WithLabelValues(Success).Inc()
+	r.counter.WithLabelValues(Success).Inc()
 
 	return nil
 }
 
-func (r *redisRepository) CheckConnection(ctx context.Context) error {
+func (r *RedisRepository) CheckConnection(ctx context.Context) error {
 	return r.Ping(ctx).Err()
 }

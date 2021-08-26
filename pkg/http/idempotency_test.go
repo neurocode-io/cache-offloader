@@ -13,16 +13,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIdempotency(t *testing.T) {
-	downstreamURL, err := url.Parse(config.New().ServerConfig.DownstreamHost)
-	assert.Nil(t, err)
-
+func setupRedisStore() *storage.RedisRepository {
 	r := client.NewRedis()
 	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
 
-	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
-	res := httptest.NewRecorder()
+	return redisStore
+}
 
+func setupHandler(store *storage.RedisRepository) http.HandlerFunc {
+	downstreamURL, _ := url.Parse(config.New().ServerConfig.DownstreamHost)
+	return http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
+}
+
+var (
+	redisStore = setupRedisStore()
+	handler    = setupHandler(redisStore)
+)
+
+func TestIdempotency(t *testing.T) {
+	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
 
 	req.Header.Set("request-id", "TestIdempotency")
@@ -38,19 +47,10 @@ func TestIdempotency(t *testing.T) {
 	assert.Equal(t, newRes.Header(), res.Header())
 
 	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
-
 }
 
 func Test5xxResponses(t *testing.T) {
-	downstreamURL, err := url.Parse(config.New().ServerConfig.DownstreamHost)
-	assert.Nil(t, err)
-
-	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
-
-	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
-
 	req, _ := http.NewRequest("GET", "/status/500", nil)
 	req.Header.Set("request-id", "Test5xxResponses")
 
@@ -70,15 +70,7 @@ func Test5xxResponses(t *testing.T) {
 }
 
 func TestWrongRegexResponses(t *testing.T) {
-	downstreamURL, err := url.Parse(config.New().ServerConfig.DownstreamHost)
-	assert.Nil(t, err)
-
-	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
-
-	handler := http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
 	res := httptest.NewRecorder()
-
 	req, _ := http.NewRequest("GET", "/ShouldNotStore/", nil)
 	req.Header.Set("request-id", "ShouldNotStore")
 
