@@ -6,13 +6,7 @@ import (
 	"log"
 	"time"
 
-	"dpd.de/idempotency-offloader/pkg/metrics"
 	"github.com/go-redis/redis/v8"
-	"github.com/prometheus/client_golang/prometheus"
-)
-
-var (
-	counter *prometheus.CounterVec
 )
 
 type ExpirationTime struct {
@@ -35,13 +29,6 @@ type redisRepository struct {
 }
 
 func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *redisRepository {
-	opts := metrics.CounterVecOpts{
-		Name:       "cached_http_requests",
-		Help:       "Number of cached http requests by status.",
-		LabelNames: "status",
-	}
-
-	counter = metrics.AddCounterVec(&opts)
 	return &redisRepository{redis, expirationTime, commandTimeout}
 }
 
@@ -54,7 +41,6 @@ func (r *redisRepository) LookUp(ctx context.Context, key string) (*Response, er
 	}
 
 	if err != nil {
-		counter.WithLabelValues(LookUpError).Inc()
 		log.Printf("Redis-repository LookUp error: %v", err)
 		return nil, err
 	}
@@ -75,11 +61,8 @@ func (r *redisRepository) Store(ctx context.Context, key string, resp *Response)
 
 	err = r.Set(ctx, key, storedResp, r.expirationTime.Value).Err()
 	if err != nil {
-		counter.WithLabelValues(StorageError).Inc()
 		return err
 	}
-
-	counter.WithLabelValues(Success).Inc()
 
 	return nil
 }

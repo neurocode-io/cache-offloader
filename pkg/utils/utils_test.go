@@ -6,11 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type endpointTests []struct {
-	in       string
-	expected bool
-}
-
 func TestAllowedEndoints(t *testing.T) {
 	allowedEndpoints := []string{"/management/loggers//*", "/api-docs//*"}
 

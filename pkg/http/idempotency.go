@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 
 	"context"
 
@@ -31,20 +30,16 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	status := http.StatusBadGateway
 
 	http.Error(res, "Something bad happened", status)
-	StatusCounter.WithLabelValues(strconv.Itoa(status)).Inc()
 }
 
 func cacheResponse(ctx context.Context, requestId string, repo storage.Repository) func(*http.Response) error {
 	return func(response *http.Response) error {
 		log.Printf("Got response from downstream service %v", response)
-		StatusCounter.WithLabelValues(strconv.Itoa(response.StatusCode)).Inc()
 
 		if response.StatusCode >= 500 {
 			log.Printf("Won't cache 5XX downstream responses")
 			return nil
 		}
-
-		ResponseSourceCounter.WithLabelValues(ServedFromServer).Inc()
 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
@@ -101,8 +96,6 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			res.WriteHeader(http.StatusBadRequest)
 			res.Write([]byte(fmt.Sprintf("missing %v headers in HTTP request", serverConfig.IdempotencyKeys)))
 
-			StatusCounter.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Inc()
-
 			return
 		}
 
@@ -124,8 +117,6 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			res.WriteHeader(status)
 			res.Write([]byte("Storage did not respond in time or error occured"))
 
-			StatusCounter.WithLabelValues(strconv.Itoa(status)).Inc()
-
 			return
 		}
 
@@ -134,9 +125,6 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		for key, values := range result.Header {
 			res.Header()[key] = values
 		}
-
-		StatusCounter.WithLabelValues(strconv.Itoa(http.StatusOK)).Inc()
-		ResponseSourceCounter.WithLabelValues(ServedFromMemory).Inc()
 
 		res.Write(result.Body)
 	}

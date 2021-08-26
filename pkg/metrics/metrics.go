@@ -1,39 +1,71 @@
 package metrics
 
 import (
-	"net/http"
+	"strconv"
 
+	"dpd.de/idempotency-offloader/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type CounterVecOpts struct {
-	Name       string
-	Help       string
-	LabelNames string
+const (
+	success      = "Success"
+	lookUpError  = "LookUpError"
+	storageError = "StorageError"
+)
+
+const (
+	cacheHit      = "cacheHit"
+	downstreamHit = "downstreamHit"
+)
+
+type MetricCollector struct {
+	repositoryMetrics *prometheus.CounterVec
+	httpMetrics       *prometheus.CounterVec
 }
 
-func AddCounterVec(opts *CounterVecOpts) *prometheus.CounterVec {
-	counter := prometheus.NewCounterVec(
+func NewMetricCollector() *MetricCollector {
+	repositoryMetricsCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: opts.Name,
-			Help: opts.Help,
-		},
-		[]string{opts.LabelNames},
-	)
+			Name: "repository_operations_total",
+			Help: "Number of operations by result",
+		}, []string{"result"})
 
-	if err := prometheus.Register(counter); err != nil {
-		if alreadyRegistered, ok := err.(prometheus.AlreadyRegisteredError); ok {
-			counter = alreadyRegistered.ExistingCollector.(*prometheus.CounterVec)
-			return counter
-		} else {
-			return nil
-		}
+	httpMetricsCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Number of http requests by statusCode, http method and result",
+		}, []string{"statusCode", "method", "result"})
+
+	return &MetricCollector{repositoryMetrics: repositoryMetricsCounter, httpMetrics: httpMetricsCounter}
+}
+
+func (m *MetricCollector) StorageError() {
+	m.repositoryMetrics.WithLabelValues(storageError).Inc()
+}
+
+func (m *MetricCollector) LookUpError() {
+	m.repositoryMetrics.WithLabelValues(lookUpError).Inc()
+}
+
+func (m *MetricCollector) Success() {
+	m.repositoryMetrics.WithLabelValues(success).Inc()
+}
+
+func (m *MetricCollector) CacheHit(statusCode int, method string) {
+	status := strconv.Itoa(statusCode)
+	if !utils.IsValidHTTPMethod(method) {
+		method = "NA"
 	}
 
-	return counter
+	m.httpMetrics.WithLabelValues(status, method, cacheHit)
 }
 
-func MetricsHandler() http.Handler {
-	return promhttp.Handler()
+func (m *MetricCollector) DownstreamHit(statusCode int, method string) {
+	status := strconv.Itoa(statusCode)
+	if !utils.IsValidHTTPMethod(method) {
+		method = "NA"
+	}
+
+	m.httpMetrics.WithLabelValues(status, method, downstreamHit)
+
 }
