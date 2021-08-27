@@ -22,17 +22,13 @@ type Response struct {
 	Body   []byte
 }
 
-type RedisRepository struct {
+type RedisRepositoryImpl struct {
 	*redis.Client
 	expirationTime *ExpirationTime
 	commandTimeout *CommandTimeout
 }
 
-func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *RedisRepository {
-	return &RedisRepository{redis, expirationTime, commandTimeout}
-}
-
-func (r *RedisRepository) LookUp(ctx context.Context, key string) (*Response, error) {
+func (r *RedisRepositoryImpl) LookUp(ctx context.Context, key string) (*Response, error) {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 	result, err := r.Get(ctx, key).Result()
 
@@ -51,7 +47,7 @@ func (r *RedisRepository) LookUp(ctx context.Context, key string) (*Response, er
 	return &response, nil
 }
 
-func (r *RedisRepository) Store(ctx context.Context, key string, resp *Response) error {
+func (r *RedisRepositoryImpl) Store(ctx context.Context, key string, resp *Response) error {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 
 	storedResp, err := json.Marshal(resp)
@@ -67,6 +63,10 @@ func (r *RedisRepository) Store(ctx context.Context, key string, resp *Response)
 	return nil
 }
 
-func (r *RedisRepository) CheckConnection(ctx context.Context) error {
+func (r *RedisRepositoryImpl) CheckConnection(ctx context.Context) error {
 	return r.Ping(ctx).Err()
+}
+
+func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *RedisRepositoryImpl {
+	return &RedisRepositoryImpl{redis, expirationTime, commandTimeout}
 }

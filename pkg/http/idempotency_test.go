@@ -1,6 +1,8 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,24 +15,36 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupRedisStore() *storage.RedisRepository {
+type repositoryMockImpl struct{}
+
+func (r *repositoryMockImpl) LookUp(ctx context.Context, key string) (*storage.Response, error) {
+	return nil, errors.New("timeout")
+}
+
+func (r *repositoryMockImpl) Store(ctx context.Context, key string, repo *storage.Response) error {
+	return nil
+}
+
+func (r *repositoryMockImpl) CheckConnection(ctx context.Context) error {
+	return nil
+}
+
+func setupRedisStore() storage.Repository {
 	r := client.NewRedis()
 	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
 
 	return redisStore
 }
 
-func setupHandler(store *storage.RedisRepository) http.HandlerFunc {
+func setupHandler(store storage.Repository) http.HandlerFunc {
 	downstreamURL, _ := url.Parse(config.New().ServerConfig.DownstreamHost)
-	return http.HandlerFunc(IdempotencyHandler(redisStore, downstreamURL))
+	return http.HandlerFunc(IdempotencyHandler(store, downstreamURL))
 }
 
-var (
-	redisStore = setupRedisStore()
-	handler    = setupHandler(redisStore)
-)
-
 func TestIdempotency(t *testing.T) {
+	redisStore := setupRedisStore()
+	handler := setupHandler(redisStore)
+
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
 
@@ -50,8 +64,12 @@ func TestIdempotency(t *testing.T) {
 }
 
 func Test5xxResponses(t *testing.T) {
+	redisStore := setupRedisStore()
+	handler := setupHandler(redisStore)
+
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/status/500", nil)
+	client.NewRedis().Client.Del(req.Context(), "Test5xxResponses")
 	req.Header.Set("request-id", "Test5xxResponses")
 
 	handler.ServeHTTP(res, req)
@@ -70,6 +88,9 @@ func Test5xxResponses(t *testing.T) {
 }
 
 func TestWrongRegexResponses(t *testing.T) {
+	redisStore := setupRedisStore()
+	handler := setupHandler(redisStore)
+
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/ShouldNotStore/", nil)
 	req.Header.Set("request-id", "ShouldNotStore")
@@ -78,4 +99,15 @@ func TestWrongRegexResponses(t *testing.T) {
 	lookUpResult, err := redisStore.LookUp(req.Context(), "ShouldNotStore")
 	assert.Nil(t, lookUpResult)
 	assert.Nil(t, err)
+}
+
+func TestRepoTimeoutResponses(t *testing.T) {
+	handle := setupHandler(&repositoryMockImpl{})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/status/200", nil)
+	req.Header.Set("request-id", "LookupTimeout")
+
+	handle.ServeHTTP(res, req)
+	assert.Equal(t, res.Code, http.StatusBadGateway)
 }

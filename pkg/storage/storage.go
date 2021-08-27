@@ -5,7 +5,7 @@ import (
 )
 
 type Repository interface {
-	LookUp(context.Context, string) (*Response, error)
-	Store(context.Context, string, *Response) error
-	CheckConnection(context.Context) error
+	LookUp(ctx context.Context, key string) (*Response, error)
+	Store(ctx context.Context, key string, resp *Response) error
+	CheckConnection(ctx context.Context) error
 }
