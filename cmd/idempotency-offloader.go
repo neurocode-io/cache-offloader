@@ -25,6 +25,7 @@ func main() {
 	r := client.NewRedis()
 	expirationTime := config.RedisConfig.ExpirationTimeHour * time.Hour
 	commandTimeout := config.RedisConfig.CommandTimeoutMillisecond * time.Millisecond
+	log.Println(commandTimeout)
 	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: expirationTime}, &storage.CommandTimeout{Value: commandTimeout})
 
 	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))

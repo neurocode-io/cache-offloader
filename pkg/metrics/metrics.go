@@ -1,7 +1,9 @@
 package metrics
 
 import (
+	"log"
 	"strconv"
+	"sync"
 
 	"dpd.de/idempotency-offloader/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,20 +25,32 @@ type MetricCollector struct {
 	httpMetrics       *prometheus.CounterVec
 }
 
+var (
+	metricCollectorInstance *MetricCollector
+	metricsOnce             sync.Once
+)
+
 func NewMetricCollector() *MetricCollector {
-	repositoryMetricsCounter := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "repository_operations_total",
-			Help: "Number of operations by result",
-		}, []string{"result"})
+	metricsOnce.Do(func() {
+		repositoryMetricsCounter := prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "repository_operations_total",
+				Help: "Number of operations by result",
+			}, []string{"result"})
 
-	httpMetricsCounter := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "http_requests_total",
-			Help: "Number of http requests by statusCode, http method and result",
-		}, []string{"statusCode", "method", "result"})
+		httpMetricsCounter := prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "http_requests_total",
+				Help: "Number of http requests by statusCode, http method and result",
+			}, []string{"statusCode", "method", "result"})
 
-	return &MetricCollector{repositoryMetrics: repositoryMetricsCounter, httpMetrics: httpMetricsCounter}
+		prometheus.Register(repositoryMetricsCounter)
+		prometheus.Register(httpMetricsCounter)
+
+		metricCollectorInstance = &MetricCollector{repositoryMetrics: repositoryMetricsCounter, httpMetrics: httpMetricsCounter}
+	})
+
+	return metricCollectorInstance
 }
 
 func (m *MetricCollector) StorageError() {
@@ -57,6 +71,8 @@ func (m *MetricCollector) CacheHit(statusCode int, method string) {
 		method = "NA"
 	}
 
+	log.Println("metrics")
+
 	m.httpMetrics.WithLabelValues(status, method, cacheHit).Inc()
 }
 
@@ -67,5 +83,4 @@ func (m *MetricCollector) DownstreamHit(statusCode int, method string) {
 	}
 
 	m.httpMetrics.WithLabelValues(status, method, downstreamHit).Inc()
-
 }
