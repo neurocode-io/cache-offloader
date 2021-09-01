@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	h "net/http"
 	"net/url"
 	"time"
@@ -11,10 +10,11 @@ import (
 	"dpd.de/idempotency-offloader/pkg/client"
 	"dpd.de/idempotency-offloader/pkg/http"
 	"dpd.de/idempotency-offloader/pkg/storage"
+	"github.com/bloom42/rz-go"
+	"github.com/bloom42/rz-go/log"
 )
 
 func main() {
-
 	config := config.New()
 	thisPort := config.ServerConfig.Port
 	passthroughEndpoints := config.ServerConfig.PassthroughEndpoints
@@ -33,7 +33,7 @@ func main() {
 	h.Handle("/management/prometheus", http.MetricsHandler())
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
-	log.Printf("Starting idempotency-offloader, listening: %s", thisServe)
-	log.Printf("Passthrough configured for the following endpoints: %v", passthroughEndpoints)
-	log.Panicf(fmt.Sprint(h.ListenAndServe(thisServe, nil)))
+	log.Info("Starting idempotency-offloader", rz.String("Port", thisPort))
+	log.Info(fmt.Sprintf("Passthrough configured for the following endpoints: %v", passthroughEndpoints))
+	log.Panic(fmt.Sprint(h.ListenAndServe(thisServe, nil)))
 }

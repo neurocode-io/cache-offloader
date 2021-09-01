@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -17,6 +16,9 @@ import (
 	"dpd.de/idempotency-offloader/pkg/metrics"
 	"dpd.de/idempotency-offloader/pkg/storage"
 	"dpd.de/idempotency-offloader/pkg/utils"
+
+	"github.com/bloom42/rz-go"
+	"github.com/bloom42/rz-go/log"
 )
 
 func shouldProxyRequest(err error, result *storage.Response, failureModeDeny bool) bool {
@@ -24,17 +26,17 @@ func shouldProxyRequest(err error, result *storage.Response, failureModeDeny boo
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
-	log.Printf("Error occured: %v", err)
+	log.Error("Error Occured", rz.String("Error", err.Error()))
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
 func cacheResponse(ctx context.Context, requestId string, repo storage.Repository, metrics *metrics.MetricCollector) func(*http.Response) error {
 	return func(response *http.Response) error {
-		log.Printf("Got response from downstream service %v", response)
+		log.Info("Got response from downstream service", rz.String("ResponseStatus: ", http.StatusText(response.StatusCode)))
 		metrics.DownstreamHit(response.StatusCode, response.Request.Method)
 
 		if response.StatusCode >= 500 {
-			log.Printf("Won't cache 5XX downstream responses")
+			log.Info("Won't cache 5XX downstream responses", rz.String("ResponseStatus: ", http.StatusText(response.StatusCode)))
 			return nil
 		}
 
@@ -74,7 +76,7 @@ func getRequestId(headerKeys []string, req *http.Request) (string, error) {
 }
 
 func writeErrorResponse(res http.ResponseWriter, status int, message string) {
-	log.Println(message)
+	log.Error(message)
 
 	res.WriteHeader(status)
 	res.Write([]byte(message))
@@ -99,6 +101,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		if utils.VariableMatchesRegexIn(req.URL.Path, serverConfig.PassthroughEndpoints) {
+			log.Info("End point is a passthrough endpoint.", rz.String("Path", req.URL.Path))
 			proxy.ServeHTTP(res, req)
 			return
 		}
@@ -107,7 +110,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		requestId, err := getRequestId(serverConfig.IdempotencyKeys, req)
 
 		if err != nil && serverConfig.FailureModeDeny {
-			writeErrorResponse(res, http.StatusBadRequest, fmt.Sprintf("missing %v headers in HTTP request", serverConfig.IdempotencyKeys))
+			writeErrorResponse(res, http.StatusBadRequest, fmt.Sprintf("missing header(s) in HTTP request. Required headers: %v", serverConfig.IdempotencyKeys))
 			return
 		}
 
@@ -124,7 +127,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			return
 		}
 
-		log.Printf("serving from memory requestId %v", requestId)
+		log.Info("serving request from memory", rz.String("RequestId: ", requestId))
 		metrics.CacheHit(result.Status, req.Method)
 		serveResponseFromMemory(res, result)
 	}

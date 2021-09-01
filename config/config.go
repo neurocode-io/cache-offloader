@@ -2,11 +2,12 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bloom42/rz-go/log"
 )
 
 type RedisConfig struct {
@@ -56,7 +57,7 @@ func getEnvAsInt(key, defaultVal string) int {
 	if err != nil {
 		value, err = strconv.Atoi(defaultVal)
 		if err != nil {
-			log.Fatalf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
+			log.Fatal(fmt.Sprintf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal))
 		}
 	}
 
@@ -69,7 +70,7 @@ func getEnvAsBool(key, defaultVal string) bool {
 	if err != nil {
 		value, err = strconv.ParseBool(defaultVal)
 		if err != nil {
-			log.Fatalf("Key: %v not a bool. DefaultValue: %v also not a bool", key, defaultVal)
+			log.Fatal(fmt.Sprintf("Key: %v not a bool. DefaultValue: %v also not a bool", key, defaultVal))
 		}
 	}
 
