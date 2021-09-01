@@ -92,7 +92,7 @@ func TestWrongRegexResponses(t *testing.T) {
 	handler := setupHandler(redisStore)
 
 	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/ShouldNotStore/", nil)
+	req, _ := http.NewRequest("GET", "/status/200", nil)
 	req.Header.Set("request-id", "ShouldNotStore")
 
 	handler.ServeHTTP(res, req)
@@ -105,7 +105,7 @@ func TestRepoTimeoutResponses(t *testing.T) {
 	handle := setupHandler(&repositoryMockImpl{})
 
 	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/status/200", nil)
+	req, _ := http.NewRequest("GET", "/headers", nil)
 	req.Header.Set("request-id", "LookupTimeout")
 
 	handle.ServeHTTP(res, req)

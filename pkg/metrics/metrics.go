@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"log"
 	"strconv"
 	"sync"
 
@@ -70,8 +69,6 @@ func (m *MetricCollector) CacheHit(statusCode int, method string) {
 	if !utils.IsValidHTTPMethod(method) {
 		method = "NA"
 	}
-
-	log.Println("metrics")
 
 	m.httpMetrics.WithLabelValues(status, method, cacheHit).Inc()
 }

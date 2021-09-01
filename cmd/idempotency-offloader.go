@@ -17,7 +17,7 @@ func main() {
 
 	config := config.New()
 	thisPort := config.ServerConfig.Port
-	allowedEndpoints := config.ServerConfig.AllowedEndpoints
+	passthroughEndpoints := config.ServerConfig.PassthroughEndpoints
 	downstreamURL, err := url.Parse(config.ServerConfig.DownstreamHost)
 	if err != nil {
 		log.Panic(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
@@ -25,7 +25,6 @@ func main() {
 	r := client.NewRedis()
 	expirationTime := config.RedisConfig.ExpirationTimeHour * time.Hour
 	commandTimeout := config.RedisConfig.CommandTimeoutMillisecond * time.Millisecond
-	log.Println(commandTimeout)
 	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: expirationTime}, &storage.CommandTimeout{Value: commandTimeout})
 
 	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))
@@ -35,6 +34,6 @@ func main() {
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
 	log.Printf("Starting idempotency-offloader, listening: %s", thisServe)
-	log.Printf("Idempotency configured for the following endpoints: %v", allowedEndpoints)
+	log.Printf("Passthrough configured for the following endpoints: %v", passthroughEndpoints)
 	log.Panicf(fmt.Sprint(h.ListenAndServe(thisServe, nil)))
 }

@@ -18,11 +18,11 @@ type RedisConfig struct {
 }
 
 type ServerConfig struct {
-	FailureModeDeny  bool
-	Port             string
-	DownstreamHost   string
-	AllowedEndpoints []string
-	IdempotencyKeys  []string
+	FailureModeDeny      bool
+	Port                 string
+	DownstreamHost       string
+	PassthroughEndpoints []string
+	IdempotencyKeys      []string
 }
 type Config struct {
 	RedisConfig  RedisConfig
@@ -79,11 +79,11 @@ func getEnvAsBool(key, defaultVal string) bool {
 func New() *Config {
 	return &Config{
 		ServerConfig: ServerConfig{
-			Port:             getEnv("SERVER_PORT", "8000"),
-			DownstreamHost:   getEnv("DOWNSTREAM_HOST", ""),
-			AllowedEndpoints: getEnvAsSlice("DOWNSTREAM_ALLOWED_ENDPOINTS"),
-			IdempotencyKeys:  getEnvAsSlice("IDEMPOTENCY_KEYS"),
-			FailureModeDeny:  getEnvAsBool("FAILURE_MODE_DENY", ""),
+			Port:                 getEnv("SERVER_PORT", "8000"),
+			DownstreamHost:       getEnv("DOWNSTREAM_HOST", ""),
+			PassthroughEndpoints: getEnvAsSlice("DOWNSTREAM_PASSTHROUGH_ENDPOINTS"),
+			IdempotencyKeys:      getEnvAsSlice("IDEMPOTENCY_KEYS"),
+			FailureModeDeny:      getEnvAsBool("FAILURE_MODE_DENY", ""),
 		},
 		RedisConfig: RedisConfig{
 			ConnectionString:          fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
