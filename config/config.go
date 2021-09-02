@@ -36,7 +36,7 @@ func getEnv(key, defaultVal string) string {
 	}
 
 	if defaultVal == "" {
-		log.Panic(key + " not set environment variable")
+		log.Fatal(key + " not set environment variable")
 	}
 
 	return defaultVal

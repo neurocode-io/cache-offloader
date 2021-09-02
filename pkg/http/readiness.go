@@ -13,7 +13,7 @@ func ReadinessHandler(r storage.Repository) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		err := r.CheckConnection(req.Context())
 		if err != nil {
-			log.Info("Redis unavailable")
+			log.Warn("Redis unavailable")
 			http.Error(res, "Redis unavailable", http.StatusServiceUnavailable)
 			return
 		}

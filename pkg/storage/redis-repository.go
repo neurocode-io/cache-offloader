@@ -31,17 +31,18 @@ func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandT
 }
 
 func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Response, error) {
+	logger := log.Logger().With(rz.Fields(rz.String("request-id", requestId)))
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
 	result, err := r.Get(ctx, requestId).Result()
 
 	if err == redis.Nil {
-		log.Info("Redis-repository: key not found", rz.String("RequestId", requestId))
+		logger.Debug("Redis-repository: key not found")
 		r.metrics.Success()
 		return nil, nil
 	}
 
 	if err != nil {
-		log.Error("Redis-repository: LookUp error.", rz.String("Error", err.Error()), rz.String("RequestId", requestId))
+		logger.Error("Redis-repository: LookUp error.", rz.Err(err))
 		r.metrics.LookUpError()
 		return nil, err
 	}
@@ -55,17 +56,18 @@ func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Respon
 
 func (r *RedisRepository) Store(ctx context.Context, requestId string, resp *Response) error {
 	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
+	logger := log.Logger().With(rz.Fields(rz.String("request-id", requestId)))
 
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
-		log.Error("Redis-repository: Store error; failed to json encode the http response.", rz.String("Error", err.Error()), rz.String("RequestId", requestId))
+		logger.Error("Redis-repository: Store error; failed to json encode the http response.", rz.Err(err))
 		r.metrics.StorageError()
 		return err
 	}
 
 	err = r.Set(ctx, requestId, storedResp, r.expirationTime.Value).Err()
 	if err != nil {
-		log.Error("Redis-repository: Store error.", rz.String("Error", err.Error()), rz.String("RequestId", requestId))
+		logger.Error("Redis-repository: Store error.", rz.Err(err))
 		r.metrics.StorageError()
 		return err
 	}

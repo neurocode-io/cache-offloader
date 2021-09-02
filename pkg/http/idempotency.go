@@ -26,23 +26,26 @@ func shouldProxyRequest(err error, result *storage.Response, failureModeDeny boo
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
-	log.Error("Error Occured", rz.String("Error", err.Error()))
+	log.Error("Error Occured", rz.Err(err))
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func cacheResponse(ctx context.Context, requestId string, repo storage.Repository, metrics *metrics.MetricCollector) func(*http.Response) error {
+func cacheResponse(ctx context.Context, requestId string, repo storage.Repository, metrics *metrics.MetricCollector, failureModeDeny bool) func(*http.Response) error {
 	return func(response *http.Response) error {
-		log.Info("Got response from downstream service", rz.String("ResponseStatus: ", http.StatusText(response.StatusCode)))
+		log.Debug("Got response from downstream service")
 		metrics.DownstreamHit(response.StatusCode, response.Request.Method)
 
 		if response.StatusCode >= 500 {
-			log.Info("Won't cache 5XX downstream responses", rz.String("ResponseStatus: ", http.StatusText(response.StatusCode)))
+			log.Warn("Won't cache 5XX downstream responses")
 			return nil
 		}
 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			return err
+			if failureModeDeny {
+				return err
+			}
+			return nil
 		}
 
 		header := response.Header
@@ -52,7 +55,9 @@ func cacheResponse(ctx context.Context, requestId string, repo storage.Repositor
 		response.Body = newBody
 
 		if err = repo.Store(ctx, requestId, &storage.Response{Body: body, Header: header, Status: statusCode}); err != nil {
-			return err
+			if failureModeDeny {
+				return err
+			}
 		}
 
 		return nil
@@ -101,7 +106,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		if utils.VariableMatchesRegexIn(req.URL.Path, serverConfig.PassthroughEndpoints) {
-			log.Info("End point is a passthrough endpoint.", rz.String("Path", req.URL.Path))
+			log.Info(fmt.Sprintf("%v is a passthrough endpoint.", req.URL.Path))
 			proxy.ServeHTTP(res, req)
 			return
 		}
@@ -122,12 +127,13 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		}
 
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
-			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo, metrics)
+			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo, metrics, serverConfig.FailureModeDeny)
+			log.Debug("response from downstream cached", rz.String("request-id", requestId))
 			proxy.ServeHTTP(res, req)
 			return
 		}
 
-		log.Info("serving request from memory", rz.String("RequestId: ", requestId))
+		log.Info("serving request from memory", rz.String("request-id", requestId))
 		metrics.CacheHit(result.Status, req.Method)
 		serveResponseFromMemory(res, result)
 	}

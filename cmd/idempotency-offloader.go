@@ -19,9 +19,12 @@ func main() {
 	thisPort := config.ServerConfig.Port
 	passthroughEndpoints := config.ServerConfig.PassthroughEndpoints
 	downstreamURL, err := url.Parse(config.ServerConfig.DownstreamHost)
+	log.SetLogger(log.With(rz.TimeFieldFormat(time.RFC3339Nano)))
+
 	if err != nil {
-		log.Panic(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
+		log.Fatal(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
 	}
+
 	r := client.NewRedis()
 	expirationTime := config.RedisConfig.ExpirationTimeHour * time.Hour
 	commandTimeout := config.RedisConfig.CommandTimeoutMillisecond * time.Millisecond
@@ -33,7 +36,11 @@ func main() {
 	h.Handle("/management/prometheus", http.MetricsHandler())
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
-	log.Info("Starting idempotency-offloader", rz.String("Port", thisPort))
-	log.Info(fmt.Sprintf("Passthrough configured for the following endpoints: %v", passthroughEndpoints))
-	log.Panic(fmt.Sprint(h.ListenAndServe(thisServe, nil)))
+	log.Info(fmt.Sprintf("Starting idempotency-offloader on port %v", thisPort))
+	log.Info(fmt.Sprintf("Downstream host configured %v", downstreamURL))
+
+	log.Info(fmt.Sprintf("Passthrough endpoints configured: %v", passthroughEndpoints), rz.Timestamp(true))
+
+	err = h.ListenAndServe(thisServe, nil)
+	log.Fatal("Unhandled error occured. Will reboot.", rz.Err(err))
 }
