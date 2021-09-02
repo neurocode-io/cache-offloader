@@ -111,3 +111,30 @@ func TestRepoTimeoutResponses(t *testing.T) {
 	handle.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusBadGateway, res.Code)
 }
+
+// this test should fail because the bug is reproducible
+// but somehow in the test it cant be re-produced
+// probably because we arent running a server we are
+// just using httptest.NewRecorder()
+
+// func TestPassthroguhIsNeverCached(t *testing.T) {
+// 	redisStore := setupRedisStore()
+// 	handler := setupHandler(redisStore)
+
+// 	res := httptest.NewRecorder()
+// 	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
+
+// 	req.Header.Set("request-id", "TestIdempotency")
+// 	handler.ServeHTTP(res, req)
+
+// 	assert.Equal(t, res.Code, http.StatusOK)
+
+// 	newRes := httptest.NewRecorder()
+// 	newReq, _ := http.NewRequest("GET", "/status/200", nil)
+// 	newReq.Header.Set("request-id", "TestIdempotency")
+// 	handler.ServeHTTP(newRes, newReq)
+
+// 	assert.Equal(t, http.StatusOK, newRes.Code)
+
+// 	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
+// }
