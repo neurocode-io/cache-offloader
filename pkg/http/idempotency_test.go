@@ -57,7 +57,7 @@ func TestIdempotency(t *testing.T) {
 	handler.ServeHTTP(newRes, req)
 
 	assert.Equal(t, newRes.Code, http.StatusOK)
-	assert.Equal(t, newRes.Body, res.Body)
+	assert.Equal(t, res.Body, newRes.Body)
 	assert.Equal(t, newRes.Header(), res.Header())
 
 	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
@@ -74,7 +74,7 @@ func Test5xxResponses(t *testing.T) {
 
 	handler.ServeHTTP(res, req)
 
-	assert.Equal(t, res.Code, http.StatusInternalServerError)
+	assert.Equal(t, http.StatusInternalServerError, res.Code)
 
 	lookUpResult, err := redisStore.LookUp(req.Context(), "Test5xxResponses")
 	assert.Nil(t, lookUpResult)
@@ -109,5 +109,5 @@ func TestRepoTimeoutResponses(t *testing.T) {
 	req.Header.Set("request-id", "LookupTimeout")
 
 	handle.ServeHTTP(res, req)
-	assert.Equal(t, res.Code, http.StatusBadGateway)
+	assert.Equal(t, http.StatusBadGateway, res.Code)
 }
