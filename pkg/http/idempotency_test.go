@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,6 +17,14 @@ import (
 )
 
 type repositoryMockImpl struct{}
+
+func setup(handler http.Handler) *httptest.Server {
+	return httptest.NewServer(handler)
+}
+
+func teardown(s *httptest.Server) {
+	s.Close()
+}
 
 func (r *repositoryMockImpl) LookUp(ctx context.Context, key string) (*storage.Response, error) {
 	return nil, errors.New("timeout")
@@ -112,29 +121,31 @@ func TestRepoTimeoutResponses(t *testing.T) {
 	assert.Equal(t, http.StatusBadGateway, res.Code)
 }
 
-// this test should fail because the bug is reproducible
-// but somehow in the test it cant be re-produced
-// probably because we arent running a server we are
-// just using httptest.NewRecorder()
+func TestPassthroguhIsNeverCached(t *testing.T) {
+	redisStore := setupRedisStore()
+	handler := setupHandler(redisStore)
+	c := &http.Client{}
 
-// func TestPassthroguhIsNeverCached(t *testing.T) {
-// 	redisStore := setupRedisStore()
-// 	handler := setupHandler(redisStore)
+	srv := setup(handler)
+	defer teardown(srv)
 
-// 	res := httptest.NewRecorder()
-// 	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
+	url := fmt.Sprintf("%s/headers", srv.URL)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Add("request-id", "123")
 
-// 	req.Header.Set("request-id", "TestIdempotency")
-// 	handler.ServeHTTP(res, req)
+	resp, err := c.Do(req)
 
-// 	assert.Equal(t, res.Code, http.StatusOK)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-// 	newRes := httptest.NewRecorder()
-// 	newReq, _ := http.NewRequest("GET", "/status/200", nil)
-// 	newReq.Header.Set("request-id", "TestIdempotency")
-// 	handler.ServeHTTP(newRes, newReq)
+	newUrl := fmt.Sprintf("%s/status/200", srv.URL)
+	newReq, _ := http.NewRequest("GET", newUrl, nil)
+	req.Header.Add("request-id", "123")
 
-// 	assert.Equal(t, http.StatusOK, newRes.Code)
+	newResp, err := c.Do(newReq)
 
-// 	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
-// }
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, newResp.StatusCode)
+
+	client.NewRedis().Client.Del(req.Context(), "123")
+}

@@ -108,7 +108,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 	return func(res http.ResponseWriter, req *http.Request) {
 		if utils.VariableMatchesRegexIn(req.URL.Path, serverConfig.PassthroughEndpoints) {
 			log.Info(fmt.Sprintf("%v is a passthrough endpoint.", req.URL.Path))
-			proxy.ModifyResponse = nil
+			// proxy.ModifyResponse = nil
 			proxy.ServeHTTP(res, req)
 			return
 		}
