@@ -55,7 +55,9 @@ func TestLookupResultAndErrorNil(t *testing.T) {
 
 func TestLookupTimeout(t *testing.T) {
 	ctx := context.Background()
-	ctx, _ = context.WithTimeout(ctx, 1*time.Microsecond)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Microsecond)
+	defer cancel()
+
 	result, err := repo.LookUp(ctx, "doesNotExist")
 
 	assert.Nil(t, result)

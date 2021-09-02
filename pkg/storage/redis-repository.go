@@ -32,7 +32,8 @@ func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandT
 
 func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Response, error) {
 	logger := log.Logger().With(rz.Fields(rz.String("request-id", requestId)))
-	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
+	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
+	defer cancel()
 	result, err := r.Get(ctx, requestId).Result()
 
 	if err == redis.Nil {
@@ -55,7 +56,9 @@ func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Respon
 }
 
 func (r *RedisRepository) Store(ctx context.Context, requestId string, resp *Response) error {
-	ctx, _ = context.WithTimeout(ctx, r.commandTimeout.Value)
+	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
+	defer cancel()
+
 	logger := log.Logger().With(rz.Fields(rz.String("request-id", requestId)))
 
 	storedResp, err := json.Marshal(resp)
