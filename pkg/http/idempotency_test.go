@@ -96,7 +96,7 @@ func Test5xxResponses(t *testing.T) {
 	assert.NotEqual(t, newRes.Header()["Date"], res.Header()["Date"])
 }
 
-func TestWrongRegexResponses(t *testing.T) {
+func TestPassThrough(t *testing.T) {
 	redisStore := setupRedisStore()
 	handler := setupHandler(redisStore)
 
