@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -18,12 +19,16 @@ import (
 
 type repositoryMockImpl struct{}
 
-func setup(handler http.Handler) *httptest.Server {
-	return httptest.NewServer(handler)
-}
+func setup(t *testing.T) func() {
+	redisStore := setupRedisStore()
+	handler := setupHandler(redisStore)
+	srv := httptest.NewServer(handler)
+	os.Setenv(t.Name(), srv.URL)
 
-func teardown(s *httptest.Server) {
-	s.Close()
+	return func() {
+		os.Unsetenv(t.Name())
+		srv.Close()
+	}
 }
 
 func (r *repositoryMockImpl) LookUp(ctx context.Context, key string) (*storage.Response, error) {
@@ -96,7 +101,7 @@ func Test5xxResponses(t *testing.T) {
 	assert.NotEqual(t, newRes.Header()["Date"], res.Header()["Date"])
 }
 
-func TestWrongRegexResponses(t *testing.T) {
+func TestPassThrough(t *testing.T) {
 	redisStore := setupRedisStore()
 	handler := setupHandler(redisStore)
 
@@ -122,14 +127,10 @@ func TestRepoTimeoutResponses(t *testing.T) {
 }
 
 func TestPassthroguhIsNeverCached(t *testing.T) {
-	redisStore := setupRedisStore()
-	handler := setupHandler(redisStore)
+	defer setup(t)()
 	c := &http.Client{}
 
-	srv := setup(handler)
-	defer teardown(srv)
-
-	url := fmt.Sprintf("%s/headers", srv.URL)
+	url := fmt.Sprintf("%s/headers", os.Getenv(t.Name()))
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Add("request-id", "123")
 
@@ -138,7 +139,7 @@ func TestPassthroguhIsNeverCached(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	newUrl := fmt.Sprintf("%s/status/200", srv.URL)
+	newUrl := fmt.Sprintf("%s/status/200", os.Getenv(t.Name()))
 	newReq, _ := http.NewRequest("GET", newUrl, nil)
 	req.Header.Add("request-id", "123")
 
