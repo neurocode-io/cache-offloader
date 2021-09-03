@@ -113,14 +113,15 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			return
 		}
 
-		ctx := req.Context()
-
 		requestId, err := getRequestId(serverConfig.IdempotencyKeys, req)
 
 		if err != nil && serverConfig.FailureModeDeny {
 			writeErrorResponse(res, http.StatusBadRequest, fmt.Sprintf("missing header(s) in HTTP request. Required headers: %v", serverConfig.IdempotencyKeys))
 			return
 		}
+
+		logger := log.With(rz.Fields(rz.String("request-id", requestId), rz.Bool("failure-mode-deny", serverConfig.FailureModeDeny)))
+		ctx := logger.ToCtx(req.Context())
 
 		result, err := repo.LookUp(ctx, requestId)
 
@@ -131,12 +132,12 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
 			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo, metrics, serverConfig.FailureModeDeny)
-			log.Debug("response from downstream cached", rz.String("request-id", requestId))
+			logger.Debug("response from downstream cached")
 			proxy.ServeHTTP(res, req)
 			return
 		}
 
-		log.Info("serving request from memory", rz.String("request-id", requestId))
+		logger.Info("serving request from memory")
 		metrics.CacheHit(result.Status, req.Method)
 		serveResponseFromMemory(res, result)
 	}

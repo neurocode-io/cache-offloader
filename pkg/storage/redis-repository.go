@@ -7,7 +7,6 @@ import (
 
 	"dpd.de/idempotency-offloader/pkg/metrics"
 	"github.com/bloom42/rz-go"
-	"github.com/bloom42/rz-go/log"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -31,7 +30,7 @@ func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandT
 }
 
 func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Response, error) {
-	logger := log.Logger().With(rz.Fields(rz.String("request-id", requestId)))
+	logger := rz.FromCtx(ctx)
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
 	defer cancel()
 	result, err := r.Get(ctx, requestId).Result()
@@ -56,10 +55,10 @@ func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Respon
 }
 
 func (r *RedisRepository) Store(ctx context.Context, requestId string, resp *Response) error {
+	logger := rz.FromCtx(ctx)
+
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
 	defer cancel()
-
-	logger := log.Logger().With(rz.Fields(rz.String("request-id", requestId)))
 
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
