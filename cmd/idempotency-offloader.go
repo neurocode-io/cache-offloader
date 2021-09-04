@@ -16,11 +16,10 @@ import (
 
 func main() {
 	config := config.New()
+	log.SetLogger(log.With(rz.Level(config.ServerConfig.LogLevel), rz.TimeFieldFormat(time.RFC3339Nano)))
 	thisPort := config.ServerConfig.Port
 	passthroughEndpoints := config.ServerConfig.PassthroughEndpoints
 	downstreamURL, err := url.Parse(config.ServerConfig.DownstreamHost)
-	log.SetLogger(log.With(rz.TimeFieldFormat(time.RFC3339Nano)))
-
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
 	}

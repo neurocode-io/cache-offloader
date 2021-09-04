@@ -7,7 +7,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bloom42/rz-go"
 	"github.com/bloom42/rz-go/log"
+)
+
+var (
+	logLevel = map[string]rz.LogLevel{
+		"debug":    rz.DebugLevel,
+		"info":     rz.InfoLevel,
+		"warn":     rz.WarnLevel,
+		"error":    rz.ErrorLevel,
+		"fatal":    rz.FatalLevel,
+		"panic":    rz.PanicLevel,
+		"none":     rz.NoLevel,
+		"disabled": rz.Disabled,
+	}
 )
 
 type RedisConfig struct {
@@ -24,6 +38,7 @@ type ServerConfig struct {
 	DownstreamHost       string
 	PassthroughEndpoints []string
 	IdempotencyKeys      []string
+	LogLevel             rz.LogLevel
 }
 type Config struct {
 	RedisConfig  RedisConfig
@@ -40,6 +55,22 @@ func getEnv(key, defaultVal string) string {
 	}
 
 	return defaultVal
+}
+
+func getEnvAsLogLevel(key string) rz.LogLevel {
+	value, exists := os.LookupEnv(key)
+
+	if !exists {
+		log.Info("SERVER_LOG_LEVEL was not set, falling back to warn level")
+		return rz.WarnLevel
+	}
+
+	if level, ok := logLevel[strings.ToLower(value)]; ok {
+		return level
+	}
+
+	log.Warn(fmt.Sprintf("SERVER_LOG_LEVEL: %s is unknown, falling back to warn level", value))
+	return rz.WarnLevel
 }
 
 func getEnvAsSlice(key string) []string {
@@ -82,6 +113,7 @@ func New() *Config {
 		ServerConfig: ServerConfig{
 			Port:                 getEnv("SERVER_PORT", "8000"),
 			DownstreamHost:       getEnv("DOWNSTREAM_HOST", ""),
+			LogLevel:             getEnvAsLogLevel("SERVER_LOG_LEVEL"),
 			PassthroughEndpoints: getEnvAsSlice("DOWNSTREAM_PASSTHROUGH_ENDPOINTS"),
 			IdempotencyKeys:      getEnvAsSlice("IDEMPOTENCY_KEYS"),
 			FailureModeDeny:      getEnvAsBool("FAILURE_MODE_DENY", ""),
