@@ -10,8 +10,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"context"
-
 	"dpd.de/idempotency-offloader/config"
 	"dpd.de/idempotency-offloader/pkg/metrics"
 	"dpd.de/idempotency-offloader/pkg/storage"
@@ -30,13 +28,16 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func cacheResponse(ctx context.Context, requestId string, repo storage.Repository, metrics *metrics.MetricCollector, failureModeDeny bool) func(*http.Response) error {
+func cacheResponse(requestId string, repo storage.Repository, metrics *metrics.MetricCollector, failureModeDeny bool) func(*http.Response) error {
 	return func(response *http.Response) error {
-		log.Debug("Got response from downstream service")
+		ctx := response.Request.Context()
+		logger := rz.FromCtx(ctx)
+
+		logger.Debug("Got response from downstream service")
 		metrics.DownstreamHit(response.StatusCode, response.Request.Method)
 
 		if response.StatusCode >= 500 {
-			log.Warn("Won't cache 5XX downstream responses")
+			logger.Warn("Won't cache 5XX downstream responses")
 			return nil
 		}
 
@@ -98,9 +99,7 @@ func serveResponseFromMemory(res http.ResponseWriter, result *storage.Response) 
 
 func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
 	metrics := metrics.NewMetricCollector()
-
 	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
-
 	proxy.ErrorHandler = errHandler
 
 	serverConfig := config.New().ServerConfig
@@ -120,7 +119,13 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			return
 		}
 
-		logger := log.With(rz.Fields(rz.String("request-id", requestId), rz.Bool("failure-mode-deny", serverConfig.FailureModeDeny)))
+		logger := log.With(rz.Fields(
+			rz.String("request-id", requestId),
+			rz.String("path", req.URL.Path),
+			rz.String("method", req.Method),
+			rz.Bool("failure-mode-deny", serverConfig.FailureModeDeny),
+		))
+
 		ctx := logger.ToCtx(req.Context())
 
 		result, err := repo.LookUp(ctx, requestId)
@@ -131,7 +136,8 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		}
 
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
-			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo, metrics, serverConfig.FailureModeDeny)
+			req = req.WithContext(ctx)
+			proxy.ModifyResponse = cacheResponse(requestId, repo, metrics, serverConfig.FailureModeDeny)
 			logger.Debug("response from downstream cached")
 			proxy.ServeHTTP(res, req)
 			return

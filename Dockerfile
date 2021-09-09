@@ -4,10 +4,10 @@ WORKDIR /go/src/app
 COPY . ./
 
 RUN go mod download \
-  && go build -o /go/bin/app
+  && make build
 
 FROM gcr.io/distroless/base-debian10
 
-COPY --from=build /go/bin/app /
+COPY --from=build /go/src/app/app /
 
 CMD ["/app"]

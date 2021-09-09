@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"dpd.de/idempotency-offloader/pkg/metrics"
@@ -48,7 +47,7 @@ func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Respon
 	}
 
 	response := Response{}
-	json.Unmarshal([]byte(result), &response)
+	response.UnmarshalJSON([]byte(result))
 	r.metrics.Success()
 
 	return &response, nil
@@ -60,7 +59,7 @@ func (r *RedisRepository) Store(ctx context.Context, requestId string, resp *Res
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
 	defer cancel()
 
-	storedResp, err := json.Marshal(resp)
+	storedResp, err := resp.MarshalJSON()
 	if err != nil {
 		logger.Error("Redis-repository: Store error; failed to json encode the http response.", rz.Err(err))
 		r.metrics.StorageError()
