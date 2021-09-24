@@ -65,12 +65,12 @@ func TestIdempotency(t *testing.T) {
 	req.Header.Set("request-id", "TestIdempotency")
 	handler.ServeHTTP(res, req)
 
-	assert.Equal(t, res.Code, http.StatusOK)
+	assert.Equal(t, http.StatusOK, res.Code)
 
 	newRes := httptest.NewRecorder()
 	handler.ServeHTTP(newRes, req)
 
-	assert.Equal(t, newRes.Code, http.StatusOK)
+	assert.Equal(t, http.StatusOK, newRes.Code)
 	assert.Equal(t, res.Body, newRes.Body)
 	assert.Equal(t, newRes.Header(), res.Header())
 
@@ -119,7 +119,7 @@ func TestRepoTimeoutResponses(t *testing.T) {
 	handle := setupHandler(&repositoryMockImpl{})
 
 	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/headers", nil)
+	req, _ := http.NewRequest("POST", "/headers", nil)
 	req.Header.Set("request-id", "LookupTimeout")
 
 	handle.ServeHTTP(res, req)

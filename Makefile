@@ -23,7 +23,7 @@ fresh: clean build
 
 
 test: clean
-	go test ./... -v
+	go test -race ./... -v
 
 cov:
 	go test ./... -v -coverprofile cp.out

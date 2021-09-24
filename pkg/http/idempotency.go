@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 
 	"dpd.de/idempotency-offloader/config"
 	"dpd.de/idempotency-offloader/pkg/metrics"
@@ -28,9 +30,8 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func cacheResponse(requestId string, repo storage.Repository, metrics *metrics.MetricCollector, failureModeDeny bool) func(*http.Response) error {
+func cacheResponse(ctx context.Context, requestId string, repo storage.Repository, metrics *metrics.MetricCollector, failureModeDeny bool) func(*http.Response) error {
 	return func(response *http.Response) error {
-		ctx := response.Request.Context()
 		logger := rz.FromCtx(ctx)
 
 		logger.Debug("Got response from downstream service")
@@ -99,15 +100,20 @@ func serveResponseFromMemory(res http.ResponseWriter, result *storage.Response) 
 
 func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
 	metrics := metrics.NewMetricCollector()
-	proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
-	proxy.ErrorHandler = errHandler
-
 	serverConfig := config.New().ServerConfig
 
 	return func(res http.ResponseWriter, req *http.Request) {
+		proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
+		proxy.ErrorHandler = errHandler
+
 		if utils.VariableMatchesRegexIn(req.URL.Path, serverConfig.PassthroughEndpoints) {
 			log.Info(fmt.Sprintf("%v is a passthrough endpoint.", req.URL.Path))
-			proxy.ModifyResponse = nil
+			proxy.ServeHTTP(res, req)
+			return
+		}
+
+		if !(strings.ToLower(req.Method) == "post" || strings.ToLower(req.Method) == "patch") {
+			log.Debug(fmt.Sprintf("%v is not a POST or PATCH method. Wont do anything.", req.Method))
 			proxy.ServeHTTP(res, req)
 			return
 		}
@@ -116,6 +122,12 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 
 		if err != nil && serverConfig.FailureModeDeny {
 			writeErrorResponse(res, http.StatusBadRequest, fmt.Sprintf("missing header(s) in HTTP request. Required headers: %v", serverConfig.IdempotencyKeys))
+			return
+		}
+
+		if err != nil {
+			log.Debug(fmt.Sprintf("missing %v header(s) in HTTP request. failureModeDeny is %v thus will not do anything just forward the request", serverConfig.IdempotencyKeys, serverConfig.FailureModeDeny))
+			proxy.ServeHTTP(res, req)
 			return
 		}
 
@@ -136,8 +148,7 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 		}
 
 		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
-			req = req.WithContext(ctx)
-			proxy.ModifyResponse = cacheResponse(requestId, repo, metrics, serverConfig.FailureModeDeny)
+			proxy.ModifyResponse = cacheResponse(ctx, requestId, repo, metrics, serverConfig.FailureModeDeny)
 			logger.Debug("response from downstream cached")
 			proxy.ServeHTTP(res, req)
 			return

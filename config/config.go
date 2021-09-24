@@ -28,7 +28,7 @@ type RedisConfig struct {
 	ConnectionString          string
 	Password                  string
 	Database                  int
-	ExpirationTimeHour        time.Duration
+	ExpirationTimeMinutes     time.Duration
 	CommandTimeoutMillisecond time.Duration
 }
 
@@ -123,7 +123,7 @@ func New() *Config {
 			Password:                  getEnv("REDIS_PASSWORD", ""),
 			Database:                  getEnvAsInt("REDIS_DB", "0"),
 			CommandTimeoutMillisecond: time.Duration(getEnvAsInt("REDIS_COMMAND_TIMEOUT", "50")),
-			ExpirationTimeHour:        time.Duration(getEnvAsInt("REDIS_EXPIRATION_TIME_HOUR", "12")),
+			ExpirationTimeMinutes:     time.Duration(getEnvAsInt("REDIS_EXPIRATION_TIME_MINUTES", "5")),
 		},
 	}
 }

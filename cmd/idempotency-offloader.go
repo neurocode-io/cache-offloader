@@ -25,7 +25,7 @@ func main() {
 	}
 
 	r := client.NewRedis()
-	expirationTime := config.RedisConfig.ExpirationTimeHour * time.Hour
+	expirationTime := config.RedisConfig.ExpirationTimeMinutes * time.Minute
 	commandTimeout := config.RedisConfig.CommandTimeoutMillisecond * time.Millisecond
 	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: expirationTime}, &storage.CommandTimeout{Value: commandTimeout})
 
