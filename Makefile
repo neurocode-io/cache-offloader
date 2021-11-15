@@ -2,7 +2,7 @@
 include dev.env
 export
 
-BIN := idempotency-offloader
+BIN := cache-offloader
 
 HASH := $(shell git rev-parse --short HEAD)
 COMMIT_DATE := $(shell git show -s --format=%ci ${HASH})

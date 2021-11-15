@@ -52,17 +52,17 @@ func setupRedisStore() storage.Repository {
 
 func setupHandler(store storage.Repository) http.HandlerFunc {
 	downstreamURL, _ := url.Parse(config.New().ServerConfig.DownstreamHost)
-	return http.HandlerFunc(IdempotencyHandler(store, downstreamURL))
+	return http.HandlerFunc(CacheHandler(store, downstreamURL))
 }
 
-func TestIdempotency(t *testing.T) {
+func TestCacheHandler(t *testing.T) {
 	redisStore := setupRedisStore()
 	handler := setupHandler(redisStore)
 
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
 
-	req.Header.Set("request-id", "TestIdempotency")
+	req.Header.Set("request-id", "TestCacheHandler")
 	handler.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
@@ -74,7 +74,7 @@ func TestIdempotency(t *testing.T) {
 	assert.Equal(t, res.Body, newRes.Body)
 	assert.Equal(t, newRes.Header(), res.Header())
 
-	client.NewRedis().Client.Del(req.Context(), "TestIdempotency")
+	client.NewRedis().Client.Del(req.Context(), "TestCacheHandler")
 }
 
 func Test5xxResponses(t *testing.T) {

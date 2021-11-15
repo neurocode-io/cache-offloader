@@ -37,7 +37,6 @@ type ServerConfig struct {
 	Port                 string
 	DownstreamHost       string
 	PassthroughEndpoints []string
-	IdempotencyKeys      []string
 	LogLevel             rz.LogLevel
 }
 type Config struct {
@@ -115,7 +114,6 @@ func New() *Config {
 			DownstreamHost:       getEnv("DOWNSTREAM_HOST", ""),
 			LogLevel:             getEnvAsLogLevel("SERVER_LOG_LEVEL"),
 			PassthroughEndpoints: getEnvAsSlice("DOWNSTREAM_PASSTHROUGH_ENDPOINTS"),
-			IdempotencyKeys:      getEnvAsSlice("IDEMPOTENCY_KEYS"),
 			FailureModeDeny:      getEnvAsBool("FAILURE_MODE_DENY", ""),
 		},
 		RedisConfig: RedisConfig{

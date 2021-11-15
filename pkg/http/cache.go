@@ -98,7 +98,7 @@ func serveResponseFromMemory(res http.ResponseWriter, result *storage.Response) 
 	res.Write(result.Body)
 }
 
-func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
+func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
 	metrics := metrics.NewMetricCollector()
 	serverConfig := config.New().ServerConfig
 
@@ -118,15 +118,15 @@ func IdempotencyHandler(repo storage.Repository, downstreamURL *url.URL) http.Ha
 			return
 		}
 
-		requestId, err := getRequestId(serverConfig.IdempotencyKeys, req)
+		requestId, err := getRequestId([]string{"asd"}, req)
 
 		if err != nil && serverConfig.FailureModeDeny {
-			writeErrorResponse(res, http.StatusBadRequest, fmt.Sprintf("missing header(s) in HTTP request. Required headers: %v", serverConfig.IdempotencyKeys))
+			writeErrorResponse(res, http.StatusBadRequest, fmt.Sprintf("missing header(s) in HTTP request. Required headers: %v", "asd"))
 			return
 		}
 
 		if err != nil {
-			log.Debug(fmt.Sprintf("missing %v header(s) in HTTP request. failureModeDeny is %v thus will not do anything just forward the request", serverConfig.IdempotencyKeys, serverConfig.FailureModeDeny))
+			log.Debug(fmt.Sprintf("missing %v header(s) in HTTP request. failureModeDeny is %v thus will not do anything just forward the request", "asd", serverConfig.FailureModeDeny))
 			proxy.ServeHTTP(res, req)
 			return
 		}

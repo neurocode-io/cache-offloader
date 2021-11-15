@@ -29,13 +29,13 @@ func main() {
 	commandTimeout := config.RedisConfig.CommandTimeoutMillisecond * time.Millisecond
 	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: expirationTime}, &storage.CommandTimeout{Value: commandTimeout})
 
-	h.HandleFunc("/", http.IdempotencyHandler(redisStore, downstreamURL))
+	h.HandleFunc("/", http.CacheHandler(redisStore, downstreamURL))
 	h.HandleFunc("/probes/readiness", http.ReadinessHandler(redisStore))
 	h.HandleFunc("/probes/liveness", http.LivenessHandler)
 	h.Handle("/management/prometheus", http.MetricsHandler())
 
 	thisServe := fmt.Sprintf(":%s", thisPort)
-	log.Info(fmt.Sprintf("Starting idempotency-offloader on port %v", thisPort))
+	log.Info(fmt.Sprintf("Starting cache-offloader on port %v", thisPort))
 	log.Info(fmt.Sprintf("Downstream host configured %v", downstreamURL))
 
 	log.Info(fmt.Sprintf("Passthrough endpoints configured: %v", passthroughEndpoints), rz.Timestamp(true))

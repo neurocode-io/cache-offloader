@@ -9,7 +9,7 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/cmd/idempotency-offloader.go",
+      "program": "${workspaceFolder}/cmd/cache-offloader.go",
       "envFile": "${workspaceFolder}/dev.env"
     }
   ]
