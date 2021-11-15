@@ -12,10 +12,10 @@ import (
 	"net/url"
 	"strings"
 
-	"dpd.de/idempotency-offloader/config"
-	"dpd.de/idempotency-offloader/pkg/metrics"
-	"dpd.de/idempotency-offloader/pkg/storage"
-	"dpd.de/idempotency-offloader/pkg/utils"
+	"neurocode.io/cache-offloader/config"
+	"neurocode.io/cache-offloader/pkg/metrics"
+	"neurocode.io/cache-offloader/pkg/storage"
+	"neurocode.io/cache-offloader/pkg/utils"
 
 	"github.com/bloom42/rz-go"
 	"github.com/bloom42/rz-go/log"

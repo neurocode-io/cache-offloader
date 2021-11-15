@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"dpd.de/idempotency-offloader/pkg/client"
 	"github.com/stretchr/testify/assert"
+	"neurocode.io/cache-offloader/pkg/client"
 )
 
 var repo = NewRepository(client.NewRedis().Client, &ExpirationTime{Value: 1 * time.Second}, &CommandTimeout{Value: 1 * time.Second})

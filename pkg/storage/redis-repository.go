@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"dpd.de/idempotency-offloader/pkg/metrics"
 	"github.com/bloom42/rz-go"
 	"github.com/go-redis/redis/v8"
+	"neurocode.io/cache-offloader/pkg/metrics"
 )
 
 type ExpirationTime struct {

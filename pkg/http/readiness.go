@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"dpd.de/idempotency-offloader/pkg/storage"
 	"github.com/bloom42/rz-go/log"
+	"neurocode.io/cache-offloader/pkg/storage"
 )
 
 func ReadinessHandler(r storage.Repository) http.HandlerFunc {

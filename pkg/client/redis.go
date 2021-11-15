@@ -3,8 +3,8 @@ package client
 import (
 	"sync"
 
-	"dpd.de/idempotency-offloader/config"
 	"github.com/go-redis/redis/v8"
+	"neurocode.io/cache-offloader/config"
 )
 
 type redisClient struct {

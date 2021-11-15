@@ -6,12 +6,12 @@ import (
 	"net/url"
 	"time"
 
-	"dpd.de/idempotency-offloader/config"
-	"dpd.de/idempotency-offloader/pkg/client"
-	"dpd.de/idempotency-offloader/pkg/http"
-	"dpd.de/idempotency-offloader/pkg/storage"
 	"github.com/bloom42/rz-go"
 	"github.com/bloom42/rz-go/log"
+	"neurocode.io/cache-offloader/config"
+	"neurocode.io/cache-offloader/pkg/client"
+	"neurocode.io/cache-offloader/pkg/http"
+	"neurocode.io/cache-offloader/pkg/storage"
 )
 
 func main() {

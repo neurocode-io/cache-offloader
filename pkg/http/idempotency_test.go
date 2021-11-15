@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"dpd.de/idempotency-offloader/config"
-	"dpd.de/idempotency-offloader/pkg/client"
-	"dpd.de/idempotency-offloader/pkg/storage"
 	"github.com/stretchr/testify/assert"
+	"neurocode.io/cache-offloader/config"
+	"neurocode.io/cache-offloader/pkg/client"
+	"neurocode.io/cache-offloader/pkg/storage"
 )
 
 type repositoryMockImpl struct{}

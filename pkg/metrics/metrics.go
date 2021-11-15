@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"sync"
 
-	"dpd.de/idempotency-offloader/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
+	"neurocode.io/cache-offloader/pkg/utils"
 )
 
 const (
