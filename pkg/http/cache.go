@@ -133,8 +133,8 @@ func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerF
 
 		proxy.ErrorHandler = errHandler
 
-		if !(strings.ToLower(req.Method) == "post" || strings.ToLower(req.Method) == "patch") {
-			log.Debug(fmt.Sprintf("%v is not a POST or PATCH method. Wont do anything.", req.Method))
+		if !(strings.ToLower(req.Method) == "post" || strings.ToLower(req.Method) == "patch" || strings.ToLower(req.Method) == "put") {
+			log.Debug(fmt.Sprintf("%v is not a POST, PATCH or PUT method. Wont do anything.", req.Method))
 			proxy.ServeHTTP(res, req)
 			return
 		}
