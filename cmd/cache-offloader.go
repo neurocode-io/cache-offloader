@@ -18,7 +18,7 @@ func main() {
 	config := config.New()
 	log.SetLogger(log.With(rz.Level(config.ServerConfig.LogLevel), rz.TimeFieldFormat(time.RFC3339Nano)))
 	thisPort := config.ServerConfig.Port
-	passthroughEndpoints := config.ServerConfig.PassthroughEndpoints
+	ignorePaths := config.CacheConfig.IgnorePaths
 	downstreamURL, err := url.Parse(config.ServerConfig.DownstreamHost)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
@@ -38,8 +38,10 @@ func main() {
 	log.Info(fmt.Sprintf("Starting cache-offloader on port %v", thisPort))
 	log.Info(fmt.Sprintf("Downstream host configured %v", downstreamURL))
 
-	log.Info(fmt.Sprintf("Passthrough endpoints configured: %v", passthroughEndpoints), rz.Timestamp(true))
+	log.Info(fmt.Sprintf("Will ignore the following paths: %v", ignorePaths), rz.Timestamp(true))
 
 	err = h.ListenAndServe(thisServe, nil)
 	log.Fatal("Unhandled error occured. Will reboot.", rz.Err(err))
 }
+
+// https://github.com/Trendyol/sidecache/blob/master/pkg/server/server.go

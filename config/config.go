@@ -33,15 +33,34 @@ type RedisConfig struct {
 }
 
 type ServerConfig struct {
-	FailureModeDeny      bool
-	Port                 string
-	DownstreamHost       string
-	PassthroughEndpoints []string
-	LogLevel             rz.LogLevel
+	FailureModeDeny bool
+	Port            string
+	DownstreamHost  string
+	LogLevel        rz.LogLevel
+}
+
+type CacheConfig struct {
+	Strategy             string
+	Size                 int
+	StaleWhileRevalidate int
+	IgnorePaths          []string
+	HashShouldQuery      bool
+	HashQueryIgnore      map[string]bool
 }
 type Config struct {
 	RedisConfig  RedisConfig
 	ServerConfig ServerConfig
+	CacheConfig  CacheConfig
+}
+
+func hashQueryIgnoreMap(queryIgnore []string) map[string]bool {
+	hashQueryIgnoreMap := make(map[string]bool)
+
+	for i := 0; i < len(queryIgnore); i++ {
+		hashQueryIgnoreMap[queryIgnore[i]] = true
+	}
+
+	return hashQueryIgnoreMap
 }
 
 func getEnv(key, defaultVal string) string {
@@ -110,11 +129,18 @@ func getEnvAsBool(key, defaultVal string) bool {
 func New() *Config {
 	return &Config{
 		ServerConfig: ServerConfig{
-			Port:                 getEnv("SERVER_PORT", "8000"),
-			DownstreamHost:       getEnv("DOWNSTREAM_HOST", ""),
-			LogLevel:             getEnvAsLogLevel("SERVER_LOG_LEVEL"),
-			PassthroughEndpoints: getEnvAsSlice("DOWNSTREAM_PASSTHROUGH_ENDPOINTS"),
-			FailureModeDeny:      getEnvAsBool("FAILURE_MODE_DENY", ""),
+			Port:            getEnv("SERVER_PORT", "8000"),
+			DownstreamHost:  getEnv("DOWNSTREAM_HOST", ""),
+			LogLevel:        getEnvAsLogLevel("SERVER_LOG_LEVEL"),
+			FailureModeDeny: getEnvAsBool("FAILURE_MODE_DENY", ""),
+		},
+		CacheConfig: CacheConfig{
+			Strategy:             getEnv("CACHE_STRATEGY", ""),
+			IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
+			Size:                 getEnvAsInt("CACHE_SIZE_MB", "10"),
+			StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
+			HashShouldQuery:      getEnvAsBool("HASH_QUERY", ""),
+			HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_IGNORE_ENDPOINTS")),
 		},
 		RedisConfig: RedisConfig{
 			ConnectionString:          fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
