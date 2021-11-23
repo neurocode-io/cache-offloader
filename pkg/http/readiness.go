@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bloom42/rz-go/log"
+	"github.com/skerkour/rz/log"
 	"neurocode.io/cache-offloader/pkg/storage"
 )
 

@@ -18,8 +18,8 @@ import (
 	"neurocode.io/cache-offloader/pkg/storage"
 	"neurocode.io/cache-offloader/pkg/utils"
 
-	"github.com/bloom42/rz-go"
-	"github.com/bloom42/rz-go/log"
+	"github.com/skerkour/rz"
+	"github.com/skerkour/rz/log"
 )
 
 func getCacheKey(req *http.Request) string {
@@ -27,15 +27,19 @@ func getCacheKey(req *http.Request) string {
 	cacheKey.Write([]byte(req.URL.Path))
 
 	cacheConfig := config.New().CacheConfig
-	if cacheConfig.HashShouldQuery {
-		for key, values := range req.URL.Query() {
-			if _, ok := cacheConfig.HashQueryIgnore[key]; ok {
-				continue
-			}
-			for _, value := range values {
-				cacheKey.Write([]byte(fmt.Sprintf("&%s=%s", key, value)))
-			}
+
+	if !cacheConfig.HashShouldQuery {
+		return string(cacheKey.Sum(nil))
+	}
+
+	for key, values := range req.URL.Query() {
+		if _, ok := cacheConfig.HashQueryIgnore[key]; ok {
+			continue
 		}
+		for _, value := range values {
+			cacheKey.Write([]byte(fmt.Sprintf("&%s=%s", key, value)))
+		}
+
 	}
 
 	return string(cacheKey.Sum(nil))

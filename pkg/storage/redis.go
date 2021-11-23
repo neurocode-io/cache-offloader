@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/bloom42/rz-go"
 	"github.com/go-redis/redis/v8"
+	"github.com/skerkour/rz"
 	"neurocode.io/cache-offloader/pkg/metrics"
 )
 

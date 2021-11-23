@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bloom42/rz-go"
-	"github.com/bloom42/rz-go/log"
+	"github.com/skerkour/rz"
+	"github.com/skerkour/rz/log"
 	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/client"
 	"neurocode.io/cache-offloader/pkg/http"

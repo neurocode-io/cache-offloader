@@ -47,7 +47,7 @@ func (lru *HashLRU) update(key string, value Response) {
 
 }
 
-func (lru *HashLRU) Set(key string, value Response) {
+func (lru *HashLRU) Store(key string, value Response) {
 
 	lru.lock.Lock()
 
@@ -61,7 +61,7 @@ func (lru *HashLRU) Set(key string, value Response) {
 
 }
 
-func (lru *HashLRU) Get(key string) (*Response, bool) {
+func (lru *HashLRU) LookUp(key string) (*Response, bool) {
 
 	lru.lock.Lock()
 
@@ -147,9 +147,9 @@ func (lru *HashLRU) Len() int {
 
 	oldCacheSize := 0
 
-	for key, _ := range lru.oldCache {
+	for key, resp := range lru.oldCache {
 		if _, found := lru.newCache[key]; !found {
-			oldCacheSize++
+			oldCacheSize = oldCacheSize + len(resp.Body)
 		}
 	}
 
