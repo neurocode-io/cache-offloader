@@ -9,28 +9,21 @@ import (
 	"neurocode.io/cache-offloader/pkg/metrics"
 )
 
-type ExpirationTime struct {
-	Value time.Duration
-}
-
-type CommandTimeout struct {
-	Value time.Duration
-}
+const expirationTime = 0 * time.Second
 
 type RedisRepository struct {
 	*redis.Client
-	expirationTime *ExpirationTime
-	commandTimeout *CommandTimeout
+	commandTimeout time.Duration
 	metrics        *metrics.MetricCollector
 }
 
-func NewRepository(redis *redis.Client, expirationTime *ExpirationTime, commandTimeout *CommandTimeout) *RedisRepository {
-	return &RedisRepository{redis, expirationTime, commandTimeout, metrics.NewMetricCollector()}
+func NewRepository(redis *redis.Client, commandTimeout time.Duration) *RedisRepository {
+	return &RedisRepository{redis, commandTimeout, metrics.NewMetricCollector()}
 }
 
 func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Response, error) {
 	logger := rz.FromCtx(ctx)
-	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
+	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
 	defer cancel()
 	result, err := r.Get(ctx, requestId).Result()
 
@@ -56,7 +49,7 @@ func (r *RedisRepository) LookUp(ctx context.Context, requestId string) (*Respon
 func (r *RedisRepository) Store(ctx context.Context, requestId string, resp *Response) error {
 	logger := rz.FromCtx(ctx)
 
-	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout.Value)
+	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
 	defer cancel()
 
 	storedResp, err := resp.MarshalJSON()
@@ -66,7 +59,7 @@ func (r *RedisRepository) Store(ctx context.Context, requestId string, resp *Res
 		return err
 	}
 
-	err = r.Set(ctx, requestId, storedResp, r.expirationTime.Value).Err()
+	err = r.Set(ctx, requestId, storedResp, expirationTime).Err()
 	if err != nil {
 		logger.Error("Redis-repository: Store error.", rz.Err(err))
 		r.metrics.StorageError()

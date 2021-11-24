@@ -10,7 +10,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/client"
 )
 
-var repo = NewRepository(client.NewRedis().Client, &ExpirationTime{Value: 1 * time.Second}, &CommandTimeout{Value: 1 * time.Second})
+var repo = NewRepository(client.NewRedis().Client, 1*time.Second)
 
 type TestResponseBody struct {
 	ID      int

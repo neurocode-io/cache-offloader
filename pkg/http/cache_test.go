@@ -45,7 +45,7 @@ func (r *repositoryMockImpl) CheckConnection(ctx context.Context) error {
 
 func setupRedisStore() storage.Repository {
 	r := client.NewRedis()
-	redisStore := storage.NewRepository(r.Client, &storage.ExpirationTime{Value: 1 * time.Hour}, &storage.CommandTimeout{Value: 1 * time.Second})
+	redisStore := storage.NewRepository(r.Client, 1*time.Second)
 
 	return redisStore
 }

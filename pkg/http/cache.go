@@ -45,8 +45,8 @@ func getCacheKey(req *http.Request) string {
 	return string(cacheKey.Sum(nil))
 }
 
-func shouldProxyRequest(err error, result *storage.Response, failureModeDeny bool) bool {
-	return (err == nil && result == nil) || (err != nil && !failureModeDeny)
+func shouldProxyRequest(err error, result *storage.Response) bool {
+	return (err == nil && result == nil) || (err != nil)
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
@@ -54,7 +54,7 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func cacheResponse(ctx context.Context, hashKey string, repo storage.Repository, metrics *metrics.MetricCollector, failureModeDeny bool) func(*http.Response) error {
+func cacheResponse(ctx context.Context, hashKey string, repo storage.Repository, metrics *metrics.MetricCollector) func(*http.Response) error {
 	return func(response *http.Response) error {
 		logger := rz.FromCtx(ctx)
 
@@ -76,10 +76,7 @@ func cacheResponse(ctx context.Context, hashKey string, repo storage.Repository,
 		}
 
 		if err != nil {
-			if failureModeDeny {
-				return err
-			}
-			return nil
+			return err
 		}
 
 		header := response.Header
@@ -89,9 +86,9 @@ func cacheResponse(ctx context.Context, hashKey string, repo storage.Repository,
 		response.Body = newBody
 
 		if err = repo.Store(ctx, hashKey, &storage.Response{Body: body, Header: header, Status: statusCode}); err != nil {
-			if failureModeDeny {
-				return err
-			}
+
+			return err
+
 		}
 
 		return nil
@@ -116,7 +113,6 @@ func serveResponseFromMemory(res http.ResponseWriter, result *storage.Response) 
 
 func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerFunc {
 	metrics := metrics.NewMetricCollector()
-	serverConfig := config.New().ServerConfig
 	cacheConfig := config.New().CacheConfig
 
 	return func(res http.ResponseWriter, req *http.Request) {
@@ -148,20 +144,19 @@ func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerF
 		logger := log.With(rz.Fields(
 			rz.String("path", req.URL.Path),
 			rz.String("method", req.Method),
-			rz.Bool("failure-mode-deny", serverConfig.FailureModeDeny),
 		))
 
 		ctx := logger.ToCtx(req.Context())
 
 		result, err := repo.LookUp(ctx, hashKey)
 
-		if err != nil && serverConfig.FailureModeDeny {
+		if err != nil {
 			writeErrorResponse(res, http.StatusBadGateway, fmt.Sprintf("Storage did not respond in time or error occured: %v", err))
 			return
 		}
 
-		if shouldProxyRequest(err, result, serverConfig.FailureModeDeny) {
-			proxy.ModifyResponse = cacheResponse(ctx, hashKey, repo, metrics, serverConfig.FailureModeDeny)
+		if shouldProxyRequest(err, result) {
+			proxy.ModifyResponse = cacheResponse(ctx, hashKey, repo, metrics)
 			logger.Debug("response from downstream cached")
 			proxy.ServeHTTP(res, req)
 			return
