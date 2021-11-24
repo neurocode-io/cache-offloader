@@ -71,8 +71,8 @@ func New() Config {
 				Strategy:             getEnv("CACHE_STRATEGY", ""),
 				IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
 				StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-				HashShouldQuery:      getEnvAsBool("HASH_QUERY", ""),
-				HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_IGNORE_ENDPOINTS")),
+				HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+				HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 			},
 			MemoryConfig: &MemoryConfig{
 				Size:      getEnvAsInt("REDIS_CACHE_SIZE_MB", "50"),
@@ -87,8 +87,8 @@ func New() Config {
 			Strategy:             getEnv("CACHE_STRATEGY", ""),
 			IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
 			StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-			HashShouldQuery:      getEnvAsBool("HASH_QUERY", ""),
-			HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_IGNORE_ENDPOINTS")),
+			HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+			HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 		},
 		RedisConfig: &RedisConfig{
 			ConnectionString:          fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),

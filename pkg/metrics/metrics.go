@@ -15,8 +15,8 @@ const (
 )
 
 const (
-	cacheHit      = "cacheHit"
-	downstreamHit = "downstreamHit"
+	cacheHit  = "cacheHit"
+	cacheMiss = "cacheMiss"
 )
 
 type MetricCollector struct {
@@ -73,11 +73,11 @@ func (m *MetricCollector) CacheHit(statusCode int, method string) {
 	m.httpMetrics.WithLabelValues(status, method, cacheHit).Inc()
 }
 
-func (m *MetricCollector) DownstreamHit(statusCode int, method string) {
+func (m *MetricCollector) CacheMiss(statusCode int, method string) {
 	status := strconv.Itoa(statusCode)
 	if !utils.IsValidHTTPMethod(method) {
 		method = "NA"
 	}
 
-	m.httpMetrics.WithLabelValues(status, method, downstreamHit).Inc()
+	m.httpMetrics.WithLabelValues(status, method, cacheMiss).Inc()
 }

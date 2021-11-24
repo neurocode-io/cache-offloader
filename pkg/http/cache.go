@@ -45,10 +45,6 @@ func getCacheKey(req *http.Request) string {
 	return string(cacheKey.Sum(nil))
 }
 
-func shouldProxyRequest(err error, result *storage.Response) bool {
-	return (err == nil && result == nil) || (err != nil)
-}
-
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	log.Error("Error Occured", rz.Err(err))
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
@@ -59,7 +55,7 @@ func cacheResponse(ctx context.Context, hashKey string, repo storage.Repository,
 		logger := rz.FromCtx(ctx)
 
 		logger.Debug("Got response from downstream service")
-		metrics.DownstreamHit(response.StatusCode, response.Request.Method)
+		metrics.CacheMiss(response.StatusCode, response.Request.Method)
 
 		if response.StatusCode >= 500 {
 			logger.Warn("Won't cache 5XX downstream responses")
@@ -108,6 +104,16 @@ func serveResponseFromMemory(res http.ResponseWriter, result *storage.Response) 
 	}
 
 	res.WriteHeader(result.Status)
+
+	if res.Header().Get("content-encoding") == "gzip" {
+		var b bytes.Buffer
+		gz := gzip.NewWriter(&b)
+		gz.Write(result.Body)
+		gz.Close()
+		res.Write(b.Bytes())
+		return
+	}
+
 	res.Write(result.Body)
 }
 
@@ -119,12 +125,12 @@ func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerF
 		proxy := httputil.NewSingleHostReverseProxy(downstreamURL)
 
 		if utils.VariableMatchesRegexIn(req.URL.Path, cacheConfig.IgnorePaths) {
-			log.Info(fmt.Sprintf("%v is a ignore endpoint.", req.URL.Path))
+			log.Info(fmt.Sprintf("not caching %v", req.URL.Path))
 			proxy.ServeHTTP(res, req)
 			return
 		}
 
-		// websocket
+		// websockets
 		if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
 			log.Info("Websocket request")
 			proxy.ServeHTTP(res, req)
@@ -133,8 +139,8 @@ func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerF
 
 		proxy.ErrorHandler = errHandler
 
-		if !(strings.ToLower(req.Method) == "post" || strings.ToLower(req.Method) == "patch" || strings.ToLower(req.Method) == "put") {
-			log.Debug(fmt.Sprintf("%v is not a POST, PATCH or PUT method. Wont do anything.", req.Method))
+		if !(strings.ToLower(req.Method) == "get" || strings.ToLower(req.Method) == "HEAD" || strings.ToLower(req.Method) == "OPTIONS") {
+			log.Debug(fmt.Sprintf("Wont cache since %v is not a GET, HEAD or OPTIONS method.", req.Method))
 			proxy.ServeHTTP(res, req)
 			return
 		}
@@ -155,7 +161,7 @@ func CacheHandler(repo storage.Repository, downstreamURL *url.URL) http.HandlerF
 			return
 		}
 
-		if shouldProxyRequest(err, result) {
+		if result == nil {
 			proxy.ModifyResponse = cacheResponse(ctx, hashKey, repo, metrics)
 			logger.Debug("response from downstream cached")
 			proxy.ServeHTTP(res, req)

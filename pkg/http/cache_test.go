@@ -119,7 +119,7 @@ func TestRepoTimeoutResponses(t *testing.T) {
 	handle := setupHandler(&repositoryMockImpl{})
 
 	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/headers", nil)
+	req, _ := http.NewRequest("GET", "/headers", nil)
 	req.Header.Set("request-id", "LookupTimeout")
 
 	handle.ServeHTTP(res, req)

@@ -71,8 +71,9 @@ func getEnvAsInt(key, defaultVal string) int {
 }
 
 func getEnvAsBool(key, defaultVal string) bool {
-	valueStr := getEnv(key, defaultVal)
+	valueStr := strings.Trim(getEnv(key, defaultVal), "\"")
 	value, err := strconv.ParseBool(valueStr)
+	fmt.Println(err)
 	if err != nil {
 		value, err = strconv.ParseBool(defaultVal)
 		if err != nil {
