@@ -29,7 +29,7 @@ func getCacheKey(req *http.Request) string {
 	cacheConfig := config.New().CacheConfig
 
 	if !cacheConfig.HashShouldQuery {
-		return string(cacheKey.Sum(nil))
+		return fmt.Sprintf("% x", cacheKey.Sum(nil))
 	}
 
 	for key, values := range req.URL.Query() {
@@ -42,7 +42,7 @@ func getCacheKey(req *http.Request) string {
 
 	}
 
-	return string(cacheKey.Sum(nil))
+	return fmt.Sprintf("% x", cacheKey.Sum(nil))
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {

@@ -27,6 +27,7 @@ func setup(t *testing.T) func() {
 
 	return func() {
 		os.Unsetenv(t.Name())
+		client.NewRedis().FlushAll(context.TODO())
 		srv.Close()
 	}
 }
@@ -62,7 +63,6 @@ func TestCacheHandler(t *testing.T) {
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/headers?q=1", nil)
 
-	req.Header.Set("request-id", "TestCacheHandler")
 	handler.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
@@ -74,7 +74,6 @@ func TestCacheHandler(t *testing.T) {
 	assert.Equal(t, res.Body, newRes.Body)
 	assert.Equal(t, newRes.Header(), res.Header())
 
-	client.NewRedis().Client.Del(req.Context(), "TestCacheHandler")
 }
 
 func Test5xxResponses(t *testing.T) {
@@ -83,16 +82,10 @@ func Test5xxResponses(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/status/500", nil)
-	client.NewRedis().Client.Del(req.Context(), "Test5xxResponses")
-	req.Header.Set("request-id", "Test5xxResponses")
 
 	handler.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
-
-	lookUpResult, err := redisStore.LookUp(req.Context(), "Test5xxResponses")
-	assert.Nil(t, lookUpResult)
-	assert.Nil(t, err)
 
 	newRes := httptest.NewRecorder()
 	time.Sleep(1 * time.Second)
@@ -107,10 +100,9 @@ func TestPassThrough(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/status/200", nil)
-	req.Header.Set("request-id", "ShouldNotStore")
 
 	handler.ServeHTTP(res, req)
-	lookUpResult, err := redisStore.LookUp(req.Context(), "ShouldNotStore")
+	lookUpResult, err := redisStore.LookUp(req.Context(), "f7 b4 73 2c d5 f2 3b 90 3c 75 50 7f c0 54 ff 6c ef 4e b3 bc")
 	assert.Nil(t, lookUpResult)
 	assert.Nil(t, err)
 }
@@ -120,7 +112,6 @@ func TestRepoTimeoutResponses(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/headers", nil)
-	req.Header.Set("request-id", "LookupTimeout")
 
 	handle.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusBadGateway, res.Code)
@@ -132,7 +123,6 @@ func TestPassthroguhIsNeverCached(t *testing.T) {
 
 	url := fmt.Sprintf("%s/headers", os.Getenv(t.Name()))
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("request-id", "123")
 
 	resp, err := c.Do(req)
 
@@ -141,12 +131,10 @@ func TestPassthroguhIsNeverCached(t *testing.T) {
 
 	newUrl := fmt.Sprintf("%s/status/200", os.Getenv(t.Name()))
 	newReq, _ := http.NewRequest("GET", newUrl, nil)
-	req.Header.Add("request-id", "123")
 
 	newResp, err := c.Do(newReq)
 
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, newResp.StatusCode)
 
-	client.NewRedis().Client.Del(req.Context(), "123")
 }
