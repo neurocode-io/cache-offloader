@@ -61,28 +61,28 @@ func (lru *LRUMap) Set(key string, value Response) {
 	lru.cache[key] = element
 }
 
-func (lru *LRUMap) Get(key string) (*Response, bool) {
+func (lru *LRUMap) Get(key string) *Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
 	if value, found := lru.cache[key]; found {
 		lru.responses.MoveToFront(value)
-		return value.Value.(*Node).value, true
+		return value.Value.(*Node).value
 	}
 
-	return nil, false
+	return nil
 }
 
 // Difference between get and peek is that we dont update after peek
-func (lru *LRUMap) Peek(key string) (*Response, bool) {
+func (lru *LRUMap) Peek(key string) *Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
 	if value, found := lru.cache[key]; found {
-		return value.Value.(*Node).value, true
+		return value.Value.(*Node).value
 	}
 
-	return nil, false
+	return nil
 }
 
 func (lru *LRUMap) Has(key string) bool {
