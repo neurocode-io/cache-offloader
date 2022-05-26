@@ -7,7 +7,7 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/prometheus/client_golang v1.12.2
 	github.com/skerkour/rz v1.0.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 )
 
 require (
