@@ -3,7 +3,7 @@ module neurocode.io/cache-offloader
 go 1.17
 
 require (
-	github.com/go-redis/redis/v8 v8.11.4
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/prometheus/client_golang v1.12.2
 	github.com/skerkour/rz v1.0.1
