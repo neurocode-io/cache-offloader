@@ -1,171 +1,119 @@
 package storage
 
 import (
+	"context"
 	"errors"
-	"math"
 	"sync"
+	"time"
+
+	"neurocode.io/cache-offloader/config"
+	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type HashLRU struct {
-	maxSize            int
-	size               int
-	oldCache, newCache map[string]Response
+	cfg                config.CacheConfig
+	maxSize            float64
+	size               float64
+	oldCache, newCache map[string]model.Response
 	lock               sync.RWMutex
 }
 
-func NewHashLRU(maxSizeMB int) (*HashLRU, error) {
-
+func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *HashLRU {
 	if maxSizeMB <= 0 {
-		return nil, errors.New("size must be a postive int")
+		maxSizeMB = 50.0
 	}
 
-	lru := &HashLRU{
+	lru := HashLRU{
 		maxSize:  maxSizeMB,
 		size:     0,
-		oldCache: make(map[string]Response),
-		newCache: make(map[string]Response),
+		oldCache: make(map[string]model.Response),
+		newCache: make(map[string]model.Response),
+		cfg:      cfg,
 	}
 
-	return lru, nil
+	return &lru
 }
 
-func (lru *HashLRU) update(key string, value Response) {
+func (lru *HashLRU) update(key string, value model.Response) {
 
 	lru.newCache[key] = value
-	lru.size = lru.size + len(value.Body)
+	// number of bytes in a byte slice use the len function
+	bodyInBytes := len(value.Body)
+	bodyInMB := float64(bodyInBytes) / (1024 * 1024)
+	lru.size = lru.size + bodyInMB
 
 	if lru.size >= lru.maxSize {
 		lru.size = 0
 
-		lru.oldCache = make(map[string]Response)
+		lru.oldCache = make(map[string]model.Response)
 		for key, value := range lru.newCache {
 			lru.oldCache[key] = value
 		}
 
-		lru.newCache = make(map[string]Response)
+		lru.newCache = make(map[string]model.Response)
 	}
 
 }
 
-func (lru *HashLRU) Store(key string, value Response) {
+func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response) error {
+	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
+	defer cancel()
 
-	lru.lock.Lock()
-
-	if _, found := lru.newCache[key]; found {
-		lru.newCache[key] = value
-	} else {
-		lru.update(key, value)
-	}
-
-	lru.lock.Unlock()
-
-}
-
-func (lru *HashLRU) LookUp(key string) (*Response, bool) {
-
-	lru.lock.Lock()
-
-	if value, found := lru.newCache[key]; found {
+	proc := make(chan struct{}, 1)
+	go func() {
+		lru.lock.Lock()
+		if _, found := lru.newCache[key]; found {
+			lru.newCache[key] = *value
+		} else {
+			lru.update(key, *value)
+		}
 		lru.lock.Unlock()
-		return &value, found
+		proc <- struct{}{}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-proc:
+		return nil
 	}
 
-	if value, found := lru.oldCache[key]; found {
-		delete(lru.oldCache, key)
-		lru.update(key, value)
+}
+
+func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
+	defer cancel()
+
+	proc := make(chan *model.Response, 1)
+	go func() {
+		lru.lock.Lock()
+
+		if value, found := lru.newCache[key]; found {
+			lru.lock.Unlock()
+			proc <- &value
+			return
+		}
+
+		if value, found := lru.oldCache[key]; found {
+			delete(lru.oldCache, key)
+			lru.update(key, value)
+			lru.lock.Unlock()
+			proc <- &value
+			return
+		}
+
 		lru.lock.Unlock()
-		return &value, found
-	}
+		proc <- nil
+	}()
 
-	lru.lock.Unlock()
-	return nil, false
-
-}
-
-// Difference between get and peek is that we dont update after peek
-func (lru *HashLRU) Peek(key string) (*Response, bool) {
-	lru.lock.RLock()
-	if value, found := lru.newCache[key]; found {
-		lru.lock.RUnlock()
-		return &value, found
-	}
-
-	if value, found := lru.oldCache[key]; found {
-		lru.lock.RUnlock()
-		return &value, found
-	}
-
-	lru.lock.RUnlock()
-	return nil, false
-
-}
-
-func (lru *HashLRU) Has(key string) bool {
-
-	lru.lock.RLock()
-
-	_, cacheNew := lru.newCache[key]
-	_, cacheOld := lru.oldCache[key]
-
-	lru.lock.RUnlock()
-
-	return cacheNew || cacheOld
-
-}
-
-func (lru *HashLRU) Remove(key string) bool {
-
-	lru.lock.Lock()
-
-	if _, found := lru.newCache[key]; found {
-		delete(lru.newCache, key)
-		lru.size--
-		lru.lock.Unlock()
-		return true
-	}
-
-	if _, found := lru.oldCache[key]; found {
-		delete(lru.oldCache, key)
-		lru.lock.Unlock()
-		return true
-	}
-
-	lru.lock.Unlock()
-
-	return false
-
-}
-
-func (lru *HashLRU) Len() int {
-
-	lru.lock.RLock()
-
-	if lru.size == 0 {
-		lru.lock.RUnlock()
-		return len(lru.oldCache)
-	}
-
-	oldCacheSize := 0
-
-	for key, resp := range lru.oldCache {
-		if _, found := lru.newCache[key]; !found {
-			oldCacheSize = oldCacheSize + len(resp.Body)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case value := <-proc:
+		if value != nil {
+			return value, nil
+		} else {
+			return nil, errors.New("key not found")
 		}
 	}
-
-	lru.lock.RUnlock()
-	return int(math.Min(float64(lru.size+oldCacheSize), float64(lru.maxSize)))
-
-}
-
-func (lru *HashLRU) Clear() {
-
-	lru.lock.Lock()
-
-	lru.oldCache = make(map[string]Response)
-	lru.newCache = make(map[string]Response)
-	lru.size = 0
-
-	lru.lock.Unlock()
-
 }

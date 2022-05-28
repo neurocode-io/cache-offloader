@@ -22,12 +22,11 @@ var (
 )
 
 type RedisConfig struct {
-	ConnectionString          string
-	Password                  string
-	Database                  int
-	Size                      int
-	Algorithm                 string
-	CommandTimeoutMillisecond time.Duration
+	ConnectionString string
+	Password         string
+	Database         int
+	Size             int
+	Algorithm        string
 }
 
 type MemoryConfig struct {
@@ -37,28 +36,31 @@ type MemoryConfig struct {
 
 type ServerConfig struct {
 	Port           string
+	GracePeriod    int
 	DownstreamHost string
-	Storage        string
+	Storage        string // inMemory or redis
 	LogLevel       rz.LogLevel
 }
 
 type CacheConfig struct {
-	Strategy             string
-	StaleWhileRevalidate int
-	IgnorePaths          []string
-	HashShouldQuery      bool
-	HashQueryIgnore      map[string]bool
+	Strategy                   string
+	StaleWhileRevalidate       int
+	CommandTimeoutMilliseconds time.Duration
+	IgnorePaths                []string
+	HashShouldQuery            bool
+	HashQueryIgnore            map[string]bool
 }
 type Config struct {
 	ServerConfig ServerConfig
 	CacheConfig  CacheConfig
-	RedisConfig  *RedisConfig
-	MemoryConfig *MemoryConfig
+	RedisConfig  RedisConfig
+	MemoryConfig MemoryConfig
 }
 
 func New() Config {
 	serverConfig := ServerConfig{
 		Port:           getEnv("SERVER_PORT", "8000"),
+		GracePeriod:    getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "30"),
 		DownstreamHost: getEnv("DOWNSTREAM_HOST", ""),
 		LogLevel:       getEnvAsLogLevel("SERVER_LOG_LEVEL"),
 		Storage:        getEnv("SERVER_STORAGE", ""),
@@ -74,8 +76,8 @@ func New() Config {
 				HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
 				HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 			},
-			MemoryConfig: &MemoryConfig{
-				Size:      getEnvAsInt("REDIS_CACHE_SIZE_MB", "50"),
+			MemoryConfig: MemoryConfig{
+				Size:      getEnvAsInt("MEMORY_CACHE_SIZE_MB", "50"),
 				Algorithm: strings.ToLower(getEnv("MEMORY_CACHE_ALGORITHM", "LRU")),
 			},
 		}
@@ -84,20 +86,19 @@ func New() Config {
 	return Config{
 		ServerConfig: serverConfig,
 		CacheConfig: CacheConfig{
-			Strategy:             getEnv("CACHE_STRATEGY", ""),
-			IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
-			StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-			HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
-			HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
+			Strategy:                   getEnv("CACHE_STRATEGY", ""),
+			IgnorePaths:                getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
+			StaleWhileRevalidate:       getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
+			HashShouldQuery:            getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+			HashQueryIgnore:            hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
+			CommandTimeoutMilliseconds: time.Duration(getEnvAsInt("COMMAND_TIMEOUT_MS", "50")),
 		},
-		RedisConfig: &RedisConfig{
-			ConnectionString:          fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
-			Password:                  getEnv("REDIS_PASSWORD", ""),
-			Database:                  getEnvAsInt("REDIS_DB", "0"),
-			Size:                      getEnvAsInt("REDIS_CACHE_SIZE_MB", "10"),
-			CommandTimeoutMillisecond: time.Duration(getEnvAsInt("REDIS_COMMAND_TIMEOUT_MS", "50")),
-			Algorithm:                 strings.ToLower(getEnv("REDIS_CACHE_ALGORITHM", "LRU")),
+		RedisConfig: RedisConfig{
+			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
+			Password:         getEnv("REDIS_PASSWORD", ""),
+			Database:         getEnvAsInt("REDIS_DB", "0"),
+			Size:             getEnvAsInt("REDIS_CACHE_SIZE_MB", "10"),
+			Algorithm:        strings.ToLower(getEnv("REDIS_CACHE_ALGORITHM", "LRU")),
 		},
 	}
-
 }

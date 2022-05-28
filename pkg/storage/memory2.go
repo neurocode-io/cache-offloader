@@ -2,8 +2,9 @@ package storage
 
 import (
 	"container/list"
-	"errors"
 	"sync"
+
+	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type LRUMap struct {
@@ -15,25 +16,25 @@ type LRUMap struct {
 
 type Node struct {
 	key   string
-	value *Response
+	value *model.Response
 }
 
-func NewLRUMap(maxLRUSize int) (*LRUMap, error) {
+func NewLRUMap(maxLRUSize int) *LRUMap {
 
 	if maxLRUSize <= 0 {
-		return nil, errors.New("size must be a postive int")
+		maxLRUSize = 50
 	}
 
-	lru := &LRUMap{
+	lru := LRUMap{
 		maxSize:   maxLRUSize,
 		responses: list.New(),
 		cache:     make(map[string]*list.Element),
 	}
 
-	return lru, nil
+	return &lru
 }
 
-func (lru *LRUMap) Set(key string, value Response) {
+func (lru *LRUMap) Set(key string, value model.Response) {
 
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
@@ -61,7 +62,7 @@ func (lru *LRUMap) Set(key string, value Response) {
 	lru.cache[key] = element
 }
 
-func (lru *LRUMap) Get(key string) *Response {
+func (lru *LRUMap) Get(key string) *model.Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
@@ -74,7 +75,7 @@ func (lru *LRUMap) Get(key string) *Response {
 }
 
 // Difference between get and peek is that we dont update after peek
-func (lru *LRUMap) Peek(key string) *Response {
+func (lru *LRUMap) Peek(key string) *model.Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 

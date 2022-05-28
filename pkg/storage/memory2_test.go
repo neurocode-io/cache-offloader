@@ -4,32 +4,31 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"neurocode.io/cache-offloader/pkg/model"
 )
 
 func TestLRU_size0(t *testing.T) {
-	cache, err := NewLRUMap(0)
-	assert.Nil(t, cache)
-	assert.NotNil(t, err)
+	cache := NewLRUMap(0)
+	assert.NotNil(t, cache)
 }
 
 func TestLRU_functionality(t *testing.T) {
-	cache, err := NewLRUMap(3)
-	assert.Nil(t, err)
+	cache := NewLRUMap(3)
 	assert.NotNil(t, cache)
 
 	assert.Equal(t, 0, cache.Len())
 
-	cache.Set("1", Response{
+	cache.Set("1", model.Response{
 		Status: 200,
 	})
 	assert.Equal(t, 1, cache.Len())
 
-	cache.Set("2", Response{
+	cache.Set("2", model.Response{
 		Status: 200,
 	})
 	assert.Equal(t, 2, cache.Len())
 
-	cache.Set("3", Response{
+	cache.Set("3", model.Response{
 		Status: 200,
 	})
 	assert.Equal(t, 3, cache.Len())
@@ -37,7 +36,7 @@ func TestLRU_functionality(t *testing.T) {
 	val := cache.Peek("1")
 	assert.Equal(t, val.Status, 200)
 
-	cache.Set("1", Response{
+	cache.Set("1", model.Response{
 		Status: 300,
 	})
 	assert.Equal(t, 3, cache.Len())
@@ -45,7 +44,7 @@ func TestLRU_functionality(t *testing.T) {
 	val = cache.Peek("1")
 	assert.Equal(t, val.Status, 300)
 
-	cache.Set("4", Response{
+	cache.Set("4", model.Response{
 		Status: 200,
 	})
 	assert.Equal(t, 3, cache.Len())

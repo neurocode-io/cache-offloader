@@ -1,14 +1,18 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/skerkour/rz/log"
-	"neurocode.io/cache-offloader/pkg/storage"
 )
 
-func ReadinessHandler(r storage.Repository) http.HandlerFunc {
+type ReadinessChecker interface {
+	CheckConnection(context.Context) error
+}
+
+func readinessHandler(r ReadinessChecker) http.HandlerFunc {
 
 	return func(res http.ResponseWriter, req *http.Request) {
 		err := r.CheckConnection(req.Context())

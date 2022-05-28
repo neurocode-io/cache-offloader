@@ -5,6 +5,6 @@ import (
 	"net/http"
 )
 
-func LivenessHandler(res http.ResponseWriter, req *http.Request) {
+func livenessHandler(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "Alive")
 }

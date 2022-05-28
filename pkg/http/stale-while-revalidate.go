@@ -1,0 +1,187 @@
+package http
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/sha1"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
+
+	"github.com/skerkour/rz"
+	"github.com/skerkour/rz/log"
+	"neurocode.io/cache-offloader/config"
+	"neurocode.io/cache-offloader/pkg/model"
+	"neurocode.io/cache-offloader/pkg/utils"
+)
+
+type Cacher interface {
+	LookUp(context.Context, string) (*model.Response, error)
+	Store(context.Context, string, *model.Response) error
+}
+
+type MetricsCollector interface {
+	CacheHit(method string, statusCode int)
+	CacheMiss(method string, statusCode int)
+}
+
+type handler struct {
+	cacher           Cacher
+	MetricsCollector MetricsCollector
+	cacheConfig      config.CacheConfig
+	downstreamURL    url.URL
+}
+
+func getCacheKey(req *http.Request) string {
+	cacheKey := sha1.New()
+	cacheKey.Write([]byte(req.URL.Path))
+
+	cacheConfig := config.New().CacheConfig
+
+	if !cacheConfig.HashShouldQuery {
+		return fmt.Sprintf("% x", cacheKey.Sum(nil))
+	}
+
+	for key, values := range req.URL.Query() {
+		if _, ok := cacheConfig.HashQueryIgnore[key]; ok {
+			continue
+		}
+		for _, value := range values {
+			cacheKey.Write([]byte(fmt.Sprintf("&%s=%s", key, value)))
+		}
+
+	}
+
+	return fmt.Sprintf("% x", cacheKey.Sum(nil))
+}
+
+func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
+	for key, values := range result.Header {
+		res.Header()[key] = values
+	}
+
+	res.WriteHeader(result.Status)
+
+	if res.Header().Get("content-encoding") == "gzip" {
+		var b bytes.Buffer
+		gz := gzip.NewWriter(&b)
+		gz.Write(result.Body)
+		gz.Close()
+		res.Write(b.Bytes())
+		return
+	}
+
+	res.Write(result.Body)
+}
+
+func errHandler(res http.ResponseWriter, req *http.Request, err error) {
+	log.Error("Error Occured", rz.Err(err))
+	http.Error(res, "Something bad happened", http.StatusBadGateway)
+}
+
+func newStaleWhileRevalidateHandler(c Cacher, m MetricsCollector, url url.URL) handler {
+	return handler{
+		cacher:           c,
+		MetricsCollector: m,
+		downstreamURL:    url,
+	}
+}
+
+func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	proxy := httputil.NewSingleHostReverseProxy(&h.downstreamURL)
+	proxy.ErrorHandler = errHandler
+	logger := log.With(rz.Fields(
+		rz.String("path", req.URL.Path),
+		rz.String("method", req.Method),
+	))
+	ctx := logger.ToCtx(req.Context())
+
+	if utils.VariableMatchesRegexIn(req.URL.Path, h.cacheConfig.IgnorePaths) {
+		logger.Info("will not cache this request")
+		proxy.ServeHTTP(res, req)
+		return
+	}
+
+	// websockets
+	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
+		logger.Info("will not cache websocket request")
+		proxy.ServeHTTP(res, req)
+		return
+	}
+
+	if !(strings.ToLower(req.Method) == "get") {
+		logger.Debug("will not cache non-GET request")
+		proxy.ServeHTTP(res, req)
+		return
+	}
+
+	hashKey := getCacheKey(req)
+
+	result, err := h.cacher.LookUp(ctx, hashKey)
+	if err != nil {
+		writeErrorResponse(res, http.StatusBadGateway, fmt.Sprintf("Storage did not respond in time or error occured: %v", err))
+		return
+	}
+
+	if result == nil {
+		proxy.ModifyResponse = h.cacheResponse(ctx, hashKey)
+		logger.Debug("response from downstream cached")
+		proxy.ServeHTTP(res, req)
+		return
+	}
+
+	logger.Info("serving request from memory")
+	h.MetricsCollector.CacheHit(req.Method, result.Status)
+	serveResponseFromMemory(res, result)
+}
+
+func (s handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
+	return func(response *http.Response) error {
+		logger := rz.FromCtx(ctx)
+
+		logger.Debug("Got response from downstream service")
+		s.MetricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
+
+		if response.StatusCode >= 500 {
+			logger.Warn("Won't cache 5XX downstream responses")
+			return nil
+		}
+
+		var body []byte
+		var err error
+		if response.Header.Get("content-encoding") == "gzip" {
+			reader, _ := gzip.NewReader(response.Body)
+			body, err = io.ReadAll(reader)
+		} else {
+			body, err = io.ReadAll(response.Body)
+		}
+
+		if err != nil {
+			return err
+		}
+
+		header := response.Header
+		statusCode := response.StatusCode
+		newBody := ioutil.NopCloser(bytes.NewReader(body))
+
+		response.Body = newBody
+
+		if err = s.cacher.Store(ctx, hashKey, &model.Response{Body: body, Header: header, Status: statusCode}); err != nil {
+			return err
+		}
+
+		return nil
+	}
+}
+
+func writeErrorResponse(res http.ResponseWriter, status int, message string) {
+	log.Error(message)
+
+	res.WriteHeader(status)
+	res.Write([]byte(message))
+}

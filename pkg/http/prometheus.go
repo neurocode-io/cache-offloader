@@ -6,6 +6,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func MetricsHandler() http.Handler {
+func metricsHandler() http.Handler {
 	return promhttp.Handler()
 }
