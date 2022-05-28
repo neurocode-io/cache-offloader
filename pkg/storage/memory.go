@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -113,7 +112,7 @@ func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, er
 		if value != nil {
 			return value, nil
 		} else {
-			return nil, errors.New("key not found")
+			return nil, nil
 		}
 	}
 }

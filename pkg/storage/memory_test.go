@@ -28,7 +28,7 @@ func TestHashLRU(t *testing.T) {
 	assert.Equal(t, resp.Status, 200)
 
 	resp, err = lru.LookUp(ctx, "key0")
-	assert.EqualError(t, err, "key not found")
+	assert.Nil(t, err)
 	assert.Nil(t, resp)
 }
 
