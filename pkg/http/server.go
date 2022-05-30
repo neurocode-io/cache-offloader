@@ -27,6 +27,11 @@ func RunServer(cfg config.Config, cacher Cacher, metricsCollector MetricsCollect
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
 
+	for _, path := range cfg.CacheConfig.IgnorePaths {
+		log.Info(path)
+		mux.HandleFunc(path, forwardHandler(downstreamURL))
+	}
+
 	if strings.ToLower(cfg.ServerConfig.Storage) == "redis" {
 		mux.HandleFunc("/probes/readiness", readinessHandler(redinessChecker))
 	}

@@ -30,7 +30,7 @@ type RedisConfig struct {
 }
 
 type MemoryConfig struct {
-	Size      int
+	Size      float64
 	Algorithm string
 }
 
@@ -77,7 +77,7 @@ func New() Config {
 				HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 			},
 			MemoryConfig: MemoryConfig{
-				Size:      getEnvAsInt("MEMORY_CACHE_SIZE_MB", "50"),
+				Size:      getEnvAsFloat("MEMORY_CACHE_SIZE_MB", "50"),
 				Algorithm: strings.ToLower(getEnv("MEMORY_CACHE_ALGORITHM", "LRU")),
 			},
 		}

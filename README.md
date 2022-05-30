@@ -14,6 +14,12 @@ Check its working:
 http localhost:8000/probes/readiness
 ```
 
+# Test
+
+```
+go install github.com/golang/mock/mockgen@latest
+```
+
 
 # Configuration
 

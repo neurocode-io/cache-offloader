@@ -70,6 +70,19 @@ func getEnvAsInt(key, defaultVal string) int {
 	return value
 }
 
+func getEnvAsFloat(key, defaultVal string) float64 {
+	valueStr := getEnv(key, defaultVal)
+	value, err := strconv.ParseFloat(valueStr, 64)
+	if err != nil {
+		value, err = strconv.ParseFloat(defaultVal, 64)
+		if err != nil {
+			log.Fatal(fmt.Sprintf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal))
+		}
+	}
+
+	return value
+}
+
 func getEnvAsBool(key, defaultVal string) bool {
 	valueStr := strings.Trim(getEnv(key, defaultVal), "\"")
 	value, err := strconv.ParseBool(valueStr)

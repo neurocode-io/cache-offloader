@@ -21,7 +21,7 @@ func main() {
 	// if user wants redistStorage
 	// redisCacher := storage.NewRedisStorage(r.Client, commandTimeout)
 	// else use inMemoryStorage and algrithm (LRU / LFU)
-	inMemoryLRUCacher := storage.NewHashLRU(float64(cfg.MemoryConfig.Size), cfg.CacheConfig)
+	inMemoryLRUCacher := storage.NewHashLRU(cfg.MemoryConfig.Size, cfg.CacheConfig)
 
 	// if user wants prometheus metrics
 	m := metrics.NewPrometheusCollector()

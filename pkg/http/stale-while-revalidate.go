@@ -17,9 +17,9 @@ import (
 	"github.com/skerkour/rz/log"
 	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
-	"neurocode.io/cache-offloader/pkg/utils"
 )
 
+//go:generate mockgen -source=./stale-while-revalidate.go -destination=./mock_test.go -package=http
 type Cacher interface {
 	LookUp(context.Context, string) (*model.Response, error)
 	Store(context.Context, string, *model.Response) error
@@ -100,12 +100,6 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		rz.String("method", req.Method),
 	))
 	ctx := logger.ToCtx(req.Context())
-
-	if utils.VariableMatchesRegexIn(req.URL.Path, h.cacheConfig.IgnorePaths) {
-		logger.Info("will not cache this request")
-		proxy.ServeHTTP(res, req)
-		return
-	}
 
 	// websockets
 	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
