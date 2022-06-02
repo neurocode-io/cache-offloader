@@ -8,10 +8,11 @@ import (
 )
 
 type LRUCache struct {
-	mtx       sync.Mutex
-	responses *list.List
-	cache     map[string]*list.Element
-	capacity  int
+	mtx        sync.Mutex
+	responses  *list.List
+	cache      map[string]*list.Element
+	capacityMB float64
+	sizeMB     float64
 }
 
 type Node struct {
@@ -19,50 +20,70 @@ type Node struct {
 	value *model.Response
 }
 
-func NewLRUCache(maxLRUSize int) *LRUCache {
+func NewLRUCache(maxSizeMB float64) *LRUCache {
 
-	if maxLRUSize <= 0 {
-		maxLRUSize = 50
+	if maxSizeMB <= 0 {
+		maxSizeMB = 50.0
 	}
 
 	lru := LRUCache{
-		capacity:  maxLRUSize,
-		responses: list.New(),
-		cache:     make(map[string]*list.Element),
+		capacityMB: maxSizeMB,
+		sizeMB:     0.0,
+		responses:  list.New(),
+		cache:      make(map[string]*list.Element),
 	}
 
 	return &lru
 }
 
-func (lru *LRUCache) Set(key string, value model.Response) {
-
+func (lru *LRUCache) Store(key string, value model.Response) {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
-	if val, found := lru.cache[key]; found {
-		val.Value.(*Node).value = &value
-		lru.responses.MoveToFront(val)
+	bodySizeMB := lru.getSize(value)
+
+	val, found := lru.cache[key]
+
+	if found {
+		bodySizeMB = bodySizeMB - lru.getSize(*val.Value.(*Node).value)
+	}
+
+	lru.sizeMB += bodySizeMB
+
+	if (lru.sizeMB) <= lru.capacityMB {
+		if found {
+			val.Value.(*Node).value = &value
+			lru.responses.MoveToFront(val)
+		} else {
+			element := lru.responses.PushFront(&Node{value: &value, key: key})
+			lru.cache[key] = element
+		}
+
 		return
 	}
 
-	if len(lru.cache) >= lru.capacity {
-		ejectedNode := lru.responses.Back()
+	ejectedNode := &list.Element{}
+
+	for lru.sizeMB > lru.capacityMB {
+		lru.responses.Remove(ejectedNode)
+		ejectedNode = lru.responses.Back()
 		delete(lru.cache, ejectedNode.Value.(*Node).key)
 
-		ejectedNode.Value.(*Node).value = &value
-		ejectedNode.Value.(*Node).key = key
-
-		lru.cache[key] = ejectedNode
-		lru.responses.MoveToFront(ejectedNode)
-
-		return
+		lru.sizeMB -= lru.getSize(*ejectedNode.Value.(*Node).value)
 	}
 
-	element := lru.responses.PushFront(&Node{value: &value, key: key})
-	lru.cache[key] = element
+	if found {
+		ejectedNode = val
+	}
+
+	ejectedNode.Value.(*Node).value = &value
+	ejectedNode.Value.(*Node).key = key
+
+	lru.cache[key] = ejectedNode
+	lru.responses.MoveToFront(ejectedNode)
 }
 
-func (lru *LRUCache) Get(key string) *model.Response {
+func (lru *LRUCache) LookUp(key string) *model.Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
@@ -74,45 +95,23 @@ func (lru *LRUCache) Get(key string) *model.Response {
 	return nil
 }
 
-// Difference between get and peek is that we dont update after peek
-func (lru *LRUCache) Peek(key string) *model.Response {
+func (lru *LRUCache) Size() float64 {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
-	if value, found := lru.cache[key]; found {
-		return value.Value.(*Node).value
-	}
-
-	return nil
+	return lru.sizeMB
 }
 
-func (lru *LRUCache) Has(key string) bool {
-
+func (lru *LRUCache) Capacity() float64 {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
-	_, found := lru.cache[key]
-
-	return found
+	return lru.capacityMB
 }
 
-func (lru *LRUCache) Len() int {
+func (lru *LRUCache) getSize(value model.Response) float64 {
+	sizeBytes := len(value.Body)
+	sizeMB := float64(sizeBytes) / (1024 * 1024)
 
-	lru.mtx.Lock()
-	defer lru.mtx.Unlock()
-
-	return len(lru.cache)
-}
-
-func (lru *LRUCache) Capacity() int {
-	return lru.capacity
-}
-
-func (lru *LRUCache) Clear() {
-
-	lru.mtx.Lock()
-	defer lru.mtx.Unlock()
-
-	lru.responses.Init()
-	lru.cache = make(map[string]*list.Element)
+	return sizeMB
 }
