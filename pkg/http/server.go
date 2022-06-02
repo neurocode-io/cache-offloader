@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -16,30 +15,35 @@ import (
 	"neurocode.io/cache-offloader/config"
 )
 
-func RunServer(cfg config.Config, cacher Cacher, metricsCollector MetricsCollector, redinessChecker ReadinessChecker) {
-	downstreamURL, err := url.Parse(cfg.ServerConfig.DownstreamHost)
+type ServerOpts struct {
+	Config           config.Config
+	Cacher           Cacher
+	MetricsCollector MetricsCollector
+	ReadinessChecker ReadinessChecker
+}
+
+func RunServer(opts ServerOpts) {
+	downstreamURL, err := url.Parse(opts.Config.ServerConfig.DownstreamHost)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
 	}
 
 	mux := h.NewServeMux()
-	mux.Handle("/", newStaleWhileRevalidateHandler(cacher, metricsCollector, *downstreamURL))
+	mux.Handle("/", newStaleWhileRevalidateHandler(opts.Cacher, opts.MetricsCollector, *downstreamURL))
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
 
-	for _, path := range cfg.CacheConfig.IgnorePaths {
+	for _, path := range opts.Config.CacheConfig.IgnorePaths {
 		log.Info(path)
 		mux.HandleFunc(path, forwardHandler(downstreamURL))
 	}
 
-	if strings.ToLower(cfg.ServerConfig.Storage) == "redis" {
-		mux.HandleFunc("/probes/readiness", readinessHandler(redinessChecker))
-	}
+	mux.HandleFunc("/probes/readiness", readinessHandler(opts.ReadinessChecker))
 
-	server := &h.Server{Addr: fmt.Sprintf("0.0.0.0:%s", cfg.ServerConfig.Port), Handler: mux}
+	server := &h.Server{Addr: fmt.Sprintf("0.0.0.0:%s", opts.Config.ServerConfig.Port), Handler: mux}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
-	log.Info(fmt.Sprintf("Starting server on port %s", cfg.ServerConfig.Port))
+	log.Info(fmt.Sprintf("Starting server on port %s", opts.Config.ServerConfig.Port))
 
 	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
@@ -49,7 +53,7 @@ func RunServer(cfg config.Config, cacher Cacher, metricsCollector MetricsCollect
 
 		log.Warn("received interrupt signal, shutting down...")
 
-		shutdownCtx, cancel := context.WithTimeout(serverCtx, time.Duration(cfg.ServerConfig.GracePeriod)*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(serverCtx, time.Duration(opts.Config.ServerConfig.GracePeriod)*time.Second)
 
 		go func() {
 			<-shutdownCtx.Done()
