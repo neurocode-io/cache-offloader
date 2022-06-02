@@ -12,7 +12,7 @@ const (
 	cacheMiss = "cacheMiss"
 )
 
-type PrometheusCollector struct {
+type prometheusCollector struct {
 	httpMetrics *prometheus.CounterVec
 }
 
@@ -28,7 +28,7 @@ func isValidHTTPMethod(maybeMethod string) bool {
 	return false
 }
 
-func NewPrometheusCollector() *PrometheusCollector {
+func NewPrometheusCollector() prometheusCollector {
 	httpMetricsCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
@@ -37,11 +37,11 @@ func NewPrometheusCollector() *PrometheusCollector {
 
 	prometheus.Register(httpMetricsCounter)
 
-	return &PrometheusCollector{httpMetrics: httpMetricsCounter}
+	return prometheusCollector{httpMetrics: httpMetricsCounter}
 
 }
 
-func (m *PrometheusCollector) CacheHit(method string, statusCode int) {
+func (m prometheusCollector) CacheHit(method string, statusCode int) {
 	status := strconv.Itoa(statusCode)
 	if !isValidHTTPMethod(method) {
 		method = "NA"
@@ -50,7 +50,7 @@ func (m *PrometheusCollector) CacheHit(method string, statusCode int) {
 	m.httpMetrics.WithLabelValues(status, method, cacheHit).Inc()
 }
 
-func (m *PrometheusCollector) CacheMiss(method string, statusCode int) {
+func (m prometheusCollector) CacheMiss(method string, statusCode int) {
 	status := strconv.Itoa(statusCode)
 	if !isValidHTTPMethod(method) {
 		method = "NA"

@@ -9,7 +9,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-type HashLRU struct {
+type hashLRU struct {
 	cfg                config.CacheConfig
 	maxSize            float64
 	size               float64
@@ -17,23 +17,21 @@ type HashLRU struct {
 	lock               sync.RWMutex
 }
 
-func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *HashLRU {
+func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) hashLRU {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
-	lru := HashLRU{
+	return hashLRU{
 		maxSize:  maxSizeMB,
 		size:     0,
 		oldCache: make(map[string]model.Response),
 		newCache: make(map[string]model.Response),
 		cfg:      cfg,
 	}
-
-	return &lru
 }
 
-func (lru *HashLRU) update(key string, value model.Response) {
+func (lru hashLRU) update(key string, value model.Response) {
 
 	lru.newCache[key] = value
 	// number of bytes in a byte slice use the len function
@@ -54,7 +52,7 @@ func (lru *HashLRU) update(key string, value model.Response) {
 
 }
 
-func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response) error {
+func (lru hashLRU) Store(ctx context.Context, key string, value *model.Response) error {
 	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
 	defer cancel()
 
@@ -79,7 +77,7 @@ func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response
 
 }
 
-func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
+func (lru hashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
 	defer cancel()
 
