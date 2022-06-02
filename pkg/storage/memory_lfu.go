@@ -31,14 +31,12 @@ func NewLFUCache(maxLFUSize int) *LFUCache {
 		maxLFUSize = 50
 	}
 
-	lfu := LFUCache{
+	return &LFUCache{
 		min:      1,
 		capacity: maxLFUSize,
 		lists:    make(map[int]*FrequencyList),
 		nodes:    make(map[string]*list.Element),
 	}
-
-	return &lfu
 }
 
 func (lfu *LFUCache) Set(key string, value model.Response) {
