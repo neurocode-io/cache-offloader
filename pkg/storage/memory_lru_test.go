@@ -10,49 +10,48 @@ import (
 func TestLRU_size0(t *testing.T) {
 	cache := NewLRUCache(0)
 	assert.NotNil(t, cache)
-	assert.Equal(t, 50, cache.Capacity())
+	assert.Equal(t, 50.0, cache.Capacity())
 }
 
 func TestLRU_functionality(t *testing.T) {
-	cache := NewLRUCache(3)
-	assert.NotNil(t, cache)
+	cache := NewLRUCache(0.00001)
 
-	assert.Equal(t, 0, cache.Len())
-
-	cache.Set("1", model.Response{
-		Status: 200,
+	cache.Store("1", model.Response{
+		Status: 100,
+		Body:   []byte{1, 2, 3},
 	})
-	assert.Equal(t, 1, cache.Len())
+	assert.Equal(t, 100, cache.LookUp("1").Status)
 
-	cache.Set("2", model.Response{
+	cache.Store("2", model.Response{
 		Status: 200,
+		Body:   []byte{1, 2, 3},
 	})
-	assert.Equal(t, 2, cache.Len())
+	assert.Equal(t, 200, cache.LookUp("2").Status)
 
-	cache.Set("3", model.Response{
-		Status: 200,
-	})
-	assert.Equal(t, 3, cache.Len())
-
-	val := cache.Peek("1")
-	assert.Equal(t, val.Status, 200)
-
-	cache.Set("1", model.Response{
+	cache.Store("3", model.Response{
 		Status: 300,
+		Body:   []byte{1, 2, 3},
 	})
-	assert.Equal(t, 3, cache.Len())
+	assert.Equal(t, 300, cache.LookUp("3").Status)
 
-	val = cache.Peek("1")
-	assert.Equal(t, val.Status, 300)
-
-	cache.Set("4", model.Response{
+	cache.Store("1", model.Response{
 		Status: 200,
+		Body:   []byte{1, 2, 3},
 	})
-	assert.Equal(t, 3, cache.Len())
 
-	val = cache.Peek("2")
-	assert.Nil(t, val)
+	cache.Store("4", model.Response{
+		Status: 400,
+		Body:   []byte{1, 2, 3},
+	})
 
-	cache.Clear()
-	assert.Equal(t, 0, cache.Len())
+	assert.Equal(t, 400, cache.LookUp("4").Status)
+	assert.Nil(t, cache.LookUp("2"))
+
+	cache.Store("5", model.Response{
+		Status: 500,
+		Body:   []byte{1, 2, 3, 4, 5},
+	})
+
+	assert.Nil(t, cache.LookUp("1"))
+	assert.Nil(t, cache.LookUp("3"))
 }
