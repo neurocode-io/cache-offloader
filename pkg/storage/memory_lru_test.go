@@ -8,12 +8,13 @@ import (
 )
 
 func TestLRU_size0(t *testing.T) {
-	cache := NewLRUMap(0)
+	cache := NewLRUCache(0)
 	assert.NotNil(t, cache)
+	assert.Equal(t, 50, cache.Capacity())
 }
 
 func TestLRU_functionality(t *testing.T) {
-	cache := NewLRUMap(3)
+	cache := NewLRUCache(3)
 	assert.NotNil(t, cache)
 
 	assert.Equal(t, 0, cache.Len())

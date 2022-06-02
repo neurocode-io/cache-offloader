@@ -7,11 +7,11 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-type LRUMap struct {
+type LRUCache struct {
 	mtx       sync.Mutex
 	responses *list.List
 	cache     map[string]*list.Element
-	maxSize   int
+	capacity  int
 }
 
 type Node struct {
@@ -19,14 +19,14 @@ type Node struct {
 	value *model.Response
 }
 
-func NewLRUMap(maxLRUSize int) *LRUMap {
+func NewLRUCache(maxLRUSize int) *LRUCache {
 
 	if maxLRUSize <= 0 {
 		maxLRUSize = 50
 	}
 
-	lru := LRUMap{
-		maxSize:   maxLRUSize,
+	lru := LRUCache{
+		capacity:  maxLRUSize,
 		responses: list.New(),
 		cache:     make(map[string]*list.Element),
 	}
@@ -34,7 +34,7 @@ func NewLRUMap(maxLRUSize int) *LRUMap {
 	return &lru
 }
 
-func (lru *LRUMap) Set(key string, value model.Response) {
+func (lru *LRUCache) Set(key string, value model.Response) {
 
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
@@ -45,7 +45,7 @@ func (lru *LRUMap) Set(key string, value model.Response) {
 		return
 	}
 
-	if len(lru.cache) >= lru.maxSize {
+	if len(lru.cache) >= lru.capacity {
 		ejectedNode := lru.responses.Back()
 		delete(lru.cache, ejectedNode.Value.(*Node).key)
 
@@ -62,7 +62,7 @@ func (lru *LRUMap) Set(key string, value model.Response) {
 	lru.cache[key] = element
 }
 
-func (lru *LRUMap) Get(key string) *model.Response {
+func (lru *LRUCache) Get(key string) *model.Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
@@ -75,7 +75,7 @@ func (lru *LRUMap) Get(key string) *model.Response {
 }
 
 // Difference between get and peek is that we dont update after peek
-func (lru *LRUMap) Peek(key string) *model.Response {
+func (lru *LRUCache) Peek(key string) *model.Response {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
@@ -86,7 +86,7 @@ func (lru *LRUMap) Peek(key string) *model.Response {
 	return nil
 }
 
-func (lru *LRUMap) Has(key string) bool {
+func (lru *LRUCache) Has(key string) bool {
 
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
@@ -96,7 +96,7 @@ func (lru *LRUMap) Has(key string) bool {
 	return found
 }
 
-func (lru *LRUMap) Len() int {
+func (lru *LRUCache) Len() int {
 
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
@@ -104,7 +104,11 @@ func (lru *LRUMap) Len() int {
 	return len(lru.cache)
 }
 
-func (lru *LRUMap) Clear() {
+func (lru *LRUCache) Capacity() int {
+	return lru.capacity
+}
+
+func (lru *LRUCache) Clear() {
 
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
