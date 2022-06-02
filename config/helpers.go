@@ -22,7 +22,7 @@ func hashQueryIgnoreMap(queryIgnore []string) map[string]bool {
 
 func getEnv(key, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists {
-		return value
+		return strings.TrimSpace(value)
 	}
 
 	if defaultVal == "" {

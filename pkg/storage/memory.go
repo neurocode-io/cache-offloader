@@ -17,21 +17,22 @@ type hashLRU struct {
 	lock               sync.RWMutex
 }
 
-func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) hashLRU {
+func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *hashLRU {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
-	return hashLRU{
+	return &hashLRU{
 		maxSize:  maxSizeMB,
 		size:     0,
 		oldCache: make(map[string]model.Response),
 		newCache: make(map[string]model.Response),
 		cfg:      cfg,
 	}
+
 }
 
-func (lru hashLRU) update(key string, value model.Response) {
+func (lru *hashLRU) update(key string, value model.Response) {
 
 	lru.newCache[key] = value
 	// number of bytes in a byte slice use the len function
@@ -52,7 +53,7 @@ func (lru hashLRU) update(key string, value model.Response) {
 
 }
 
-func (lru hashLRU) Store(ctx context.Context, key string, value *model.Response) error {
+func (lru *hashLRU) Store(ctx context.Context, key string, value *model.Response) error {
 	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
 	defer cancel()
 
@@ -77,7 +78,7 @@ func (lru hashLRU) Store(ctx context.Context, key string, value *model.Response)
 
 }
 
-func (lru hashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
+func (lru *hashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
 	defer cancel()
 
