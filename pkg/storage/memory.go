@@ -29,11 +29,9 @@ func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *hashLRU {
 		newCache: make(map[string]model.Response),
 		cfg:      cfg,
 	}
-
 }
 
 func (lru *hashLRU) update(key string, value model.Response) {
-
 	lru.newCache[key] = value
 	// number of bytes in a byte slice use the len function
 	bodyInBytes := len(value.Body)
@@ -50,7 +48,6 @@ func (lru *hashLRU) update(key string, value model.Response) {
 
 		lru.newCache = make(map[string]model.Response)
 	}
-
 }
 
 func (lru *hashLRU) Store(ctx context.Context, key string, value *model.Response) error {
@@ -75,7 +72,6 @@ func (lru *hashLRU) Store(ctx context.Context, key string, value *model.Response
 	case <-proc:
 		return nil
 	}
-
 }
 
 func (lru *hashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {

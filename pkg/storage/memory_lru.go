@@ -21,7 +21,6 @@ type Node struct {
 }
 
 func NewLRUCache(maxSizeMB float64) *LRUCache {
-
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}

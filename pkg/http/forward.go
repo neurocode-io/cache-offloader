@@ -18,7 +18,5 @@ func forwardHandler(url *url.URL) http.HandlerFunc {
 		proxy := httputil.NewSingleHostReverseProxy(url)
 		logger.Info("will not cache this request")
 		proxy.ServeHTTP(res, req)
-
-		return
 	}
 }

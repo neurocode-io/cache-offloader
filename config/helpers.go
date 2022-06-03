@@ -37,6 +37,7 @@ func getEnvAsLogLevel(key string) rz.LogLevel {
 
 	if !exists {
 		log.Info("SERVER_LOG_LEVEL was not set, falling back to warn level")
+
 		return rz.WarnLevel
 	}
 
@@ -45,6 +46,7 @@ func getEnvAsLogLevel(key string) rz.LogLevel {
 	}
 
 	log.Warn(fmt.Sprintf("SERVER_LOG_LEVEL: %s is unknown, falling back to warn level", value))
+
 	return rz.WarnLevel
 }
 
@@ -72,9 +74,10 @@ func getEnvAsInt(key, defaultVal string) int {
 
 func getEnvAsFloat(key, defaultVal string) float64 {
 	valueStr := getEnv(key, defaultVal)
-	value, err := strconv.ParseFloat(valueStr, 64)
+	bitSize := 64
+	value, err := strconv.ParseFloat(valueStr, bitSize)
 	if err != nil {
-		value, err = strconv.ParseFloat(defaultVal, 64)
+		value, err = strconv.ParseFloat(defaultVal, bitSize)
 		if err != nil {
 			log.Fatal(fmt.Sprintf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal))
 		}

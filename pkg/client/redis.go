@@ -17,5 +17,4 @@ func NewRedis(config config.RedisConfig) *redisClient {
 	})
 
 	return &redisClient{db}
-
 }

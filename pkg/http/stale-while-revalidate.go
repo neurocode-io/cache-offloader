@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,12 +33,11 @@ type MetricsCollector interface {
 type handler struct {
 	cacher           Cacher
 	MetricsCollector MetricsCollector
-	cacheConfig      config.CacheConfig
 	downstreamURL    url.URL
 }
 
 func getCacheKey(req *http.Request) string {
-	cacheKey := sha1.New()
+	cacheKey := sha256.New()
 	cacheKey.Write([]byte(req.URL.Path))
 
 	cacheConfig := config.New().CacheConfig
@@ -54,7 +53,6 @@ func getCacheKey(req *http.Request) string {
 		for _, value := range values {
 			cacheKey.Write([]byte(fmt.Sprintf("&%s=%s", key, value)))
 		}
-
 	}
 
 	return fmt.Sprintf("% x", cacheKey.Sum(nil))
@@ -73,6 +71,7 @@ func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
 		gz.Write(result.Body)
 		gz.Close()
 		res.Write(b.Bytes())
+
 		return
 	}
 
@@ -80,7 +79,7 @@ func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
-	log.Error("Error Occured", rz.Err(err))
+	log.Error("Error occurred", rz.Err(err))
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
@@ -105,12 +104,14 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
 		logger.Info("will not cache websocket request")
 		proxy.ServeHTTP(res, req)
+
 		return
 	}
 
 	if !(strings.ToLower(req.Method) == "get") {
 		logger.Debug("will not cache non-GET request")
 		proxy.ServeHTTP(res, req)
+
 		return
 	}
 
@@ -118,7 +119,8 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	result, err := h.cacher.LookUp(ctx, hashKey)
 	if err != nil {
-		writeErrorResponse(res, http.StatusBadGateway, fmt.Sprintf("Storage did not respond in time or error occured: %v", err))
+		writeErrorResponse(res, http.StatusBadGateway, fmt.Sprintf("Storage did not respond in time or error occurred: %v", err))
+
 		return
 	}
 
@@ -126,6 +128,7 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		proxy.ModifyResponse = h.cacheResponse(ctx, hashKey)
 		logger.Debug("response from downstream cached")
 		proxy.ServeHTTP(res, req)
+
 		return
 	}
 
@@ -134,15 +137,16 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	serveResponseFromMemory(res, result)
 }
 
-func (s handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
+func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
 	return func(response *http.Response) error {
 		logger := rz.FromCtx(ctx)
 
 		logger.Debug("Got response from downstream service")
-		s.MetricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
+		h.MetricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
 
 		if response.StatusCode >= 500 {
 			logger.Warn("Won't cache 5XX downstream responses")
+
 			return nil
 		}
 
@@ -165,7 +169,7 @@ func (s handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 
 		response.Body = newBody
 
-		if err = s.cacher.Store(ctx, hashKey, &model.Response{Body: body, Header: header, Status: statusCode}); err != nil {
+		if err = h.cacher.Store(ctx, hashKey, &model.Response{Body: body, Header: header, Status: statusCode}); err != nil {
 			return err
 		}
 

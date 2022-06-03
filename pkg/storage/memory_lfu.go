@@ -108,7 +108,6 @@ func (lfu *LFUCache) Has(key string) bool {
 }
 
 func (lfu *LFUCache) Len() int {
-
 	lfu.mtx.Lock()
 	defer lfu.mtx.Unlock()
 
@@ -116,7 +115,6 @@ func (lfu *LFUCache) Len() int {
 }
 
 func (lfu *LFUCache) Clear() {
-
 	lfu.mtx.Lock()
 	defer lfu.mtx.Unlock()
 

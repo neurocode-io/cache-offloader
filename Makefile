@@ -10,28 +10,33 @@ BUILD_DATE := $(shell date '+%Y-%m-%d %H:%M:%S')
 VERSION := ${HASH} (${COMMIT_DATE})
 
 
-deps:
-	go mod download
+clean:
+	go clean
+	go clean -testcache
+	rm -rf ./bin ./vendor go.sum coverage.out coverage.out.tmp
+	go mod tidy
 
-build:
-	go build -o app -ldflags="-X 'main.buildVersion=${VERSION}' -X 'main.buildDate=${BUILD_DATE}'" -v ./cmd/${BIN}.go
+lint:
+	golangci-lint run
+
+format:
+	gofumpt -l -w .
+
+build: clean
+	export GO111MODULE=on
+	env GOARCH=amd64 GOOS=linux go build -o bin/${BIN} -ldflags="-s -w -X 'main.version=${VERSION}' -X 'main.buildDate=${BUILD_DATE}'" -v ./cmd/${BIN}.go 
+	env GOARCH=arm64 GOOS=darwin go build -o bin/${BIN}-mac -ldflags="-s -w" -v ./cmd/${BIN}.go
 
 run: fresh
-	./app
+	./bin/${BIN}-mac
 
 fresh: clean build
 
 
-test: clean
-	go test -race ./... -v
+test:
+	go test -race -v -count=1 -coverpkg=$(shell go list -m)/... -covermode=atomic --coverprofile=coverage.out.tmp $(shell go list -m)/...
+	cat coverage.out.tmp | grep -vE ".-mock/...|main.go" > coverage.out
+	go tool cover -func coverage.out | grep total
 
-cov:
-	go test ./... -v -coverprofile cp.out
-
-html-cov: cov
-	go tool cover -html=cp.out
-
-clean:
-	go clean
-	go clean -testcache
-	- rm -f app
+cov: test
+	go tool cover -html=coverage.out

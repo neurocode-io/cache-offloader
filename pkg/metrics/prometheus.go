@@ -38,7 +38,6 @@ func NewPrometheusCollector() prometheusCollector {
 	prometheus.Register(httpMetricsCounter)
 
 	return prometheusCollector{httpMetrics: httpMetricsCounter}
-
 }
 
 func (m prometheusCollector) CacheHit(method string, statusCode int) {

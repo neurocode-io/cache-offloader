@@ -2,3 +2,6 @@ app
 .DS_Store
 cp.out
 __debug_bin
+bin
+coverage.out
+coverage.out.tmp
