@@ -1,5 +1,5 @@
 # cache-offloader
-
+[![CICD](https://github.com/neurocode-io/cache-offloader/actions/workflows/main.yml/badge.svg)](https://github.com/neurocode-io/cache-offloader/actions/workflows/main.yml)
 
 # Dev
 
