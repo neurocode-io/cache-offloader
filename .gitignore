@@ -3,5 +3,4 @@ app
 cp.out
 __debug_bin
 bin
-coverage.out
-coverage.out.tmp
+coverage.txt

@@ -22,7 +22,7 @@ lint:
 format:
 	gofumpt -l -w .
 
-build: clean
+build:
 	export GO111MODULE=on
 	env GOARCH=amd64 GOOS=linux go build -o bin/${BIN} -ldflags="-s -w -X 'main.version=${VERSION}' -X 'main.buildDate=${BUILD_DATE}'" -v ./cmd/${BIN}.go 
 	env GOARCH=arm64 GOOS=darwin go build -o bin/${BIN}-mac -ldflags="-s -w" -v ./cmd/${BIN}.go
@@ -34,9 +34,12 @@ fresh: clean build
 
 
 test:
-	go test -race -v -count=1 -coverpkg=$(shell go list -m)/... -covermode=atomic --coverprofile=coverage.out.tmp $(shell go list -m)/...
-	cat coverage.out.tmp | grep -vE ".-mock/...|main.go" > coverage.out
-	go tool cover -func coverage.out | grep total
+	GO111MODULE=on go test -race -v -covermode=atomic --coverprofile=coverage.txt ./...
+	go tool cover -func coverage.txt | grep total
 
 cov: test
-	go tool cover -html=coverage.out
+	go tool cover -html=coverage.txt
+
+.PHONY: setup
+setup:
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s v1.46.2
