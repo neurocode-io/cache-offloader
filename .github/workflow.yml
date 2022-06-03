@@ -2,24 +2,31 @@ name: CICD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
+      - name: Run build binary
+        run: make build
       - name: Setup make
         run: make setup
       # - name: Run linter
       #   run: make lint
       - name: Run unit tests
         run: make test
+      # - name: Build image and push to Docker Hub and GitHub Container Registry
+      #   uses: docker/build-push-action@v2
+      #   with:
+      #     context: .
+      #     tags: |
+      #       oskardudycz/eventsourcing.nodejs.simple:latest
+      #       ghcr.io/oskardudycz/eventsourcing.nodejs/simple:latest
+      #     push: ${{ github.ref == 'refs/heads/main' }}
