@@ -42,45 +42,29 @@ func (lru *LRUCache) Store(key string, value model.Response) {
 
 	bodySizeMB := lru.getSize(value)
 
-	val, found := lru.cache[key]
-
-	if found {
-		bodySizeMB = bodySizeMB - lru.getSize(*val.Value.(*Node).value)
-	}
-
-	lru.sizeMB += bodySizeMB
-
-	if (lru.sizeMB) <= lru.capacityMB {
-		if found {
-			val.Value.(*Node).value = &value
-			lru.responses.MoveToFront(val)
-		} else {
-			element := lru.responses.PushFront(&Node{value: &value, key: key})
-			lru.cache[key] = element
-		}
-
+	if bodySizeMB > lru.capacityMB {
 		return
 	}
 
-	ejectedNode := &list.Element{}
+	if val, found := lru.cache[key]; found {
+		bodySizeMB = bodySizeMB - lru.getSize(*val.Value.(*Node).value)
+		val.Value.(*Node).value = &value
+		lru.responses.MoveToFront(val)
+	} else {
+		element := lru.responses.PushFront(&Node{value: &value, key: key})
+		lru.cache[key] = element
+	}
+
+	lru.sizeMB += bodySizeMB
+	var ejectedNode *list.Element
 
 	for lru.sizeMB > lru.capacityMB {
-		lru.responses.Remove(ejectedNode)
 		ejectedNode = lru.responses.Back()
 		delete(lru.cache, ejectedNode.Value.(*Node).key)
+		lru.responses.Remove(ejectedNode)
 
 		lru.sizeMB -= lru.getSize(*ejectedNode.Value.(*Node).value)
 	}
-
-	if found {
-		ejectedNode = val
-	}
-
-	ejectedNode.Value.(*Node).value = &value
-	ejectedNode.Value.(*Node).key = key
-
-	lru.cache[key] = ejectedNode
-	lru.responses.MoveToFront(ejectedNode)
 }
 
 func (lru *LRUCache) LookUp(key string) *model.Response {

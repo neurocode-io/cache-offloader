@@ -8,11 +8,12 @@ import (
 )
 
 type LFUCache struct {
-	mtx      sync.Mutex
-	min      int
-	capacity int
-	lists    map[int]*FrequencyList
-	nodes    map[string]*list.Element
+	mtx        sync.Mutex
+	min        int
+	capacityMB float64
+	sizeMB     float64
+	lists      map[int]*FrequencyList
+	cache      map[string]*list.Element
 }
 
 type FrequencyList struct {
@@ -26,104 +27,79 @@ type LfuNode struct {
 	key    string
 }
 
-func NewLFUCache(maxLFUSize int) *LFUCache {
-	if maxLFUSize <= 0 {
-		maxLFUSize = 50
+func NewLFUCache(maxSizeΜΒ float64) *LFUCache {
+	if maxSizeΜΒ <= 0 {
+		maxSizeΜΒ = 50.0
 	}
 
 	lfu := LFUCache{
-		min:      1,
-		capacity: maxLFUSize,
-		lists:    make(map[int]*FrequencyList),
-		nodes:    make(map[string]*list.Element),
+		min:        1,
+		capacityMB: maxSizeΜΒ,
+		sizeMB:     0,
+		lists:      make(map[int]*FrequencyList),
+		cache:      make(map[string]*list.Element),
 	}
 
 	return &lfu
 }
 
-func (lfu *LFUCache) Set(key string, value model.Response) {
-	if lfu.capacity == 0 {
+func (lfu *LFUCache) Store(key string, value model.Response) {
+	lfu.mtx.Lock()
+	defer lfu.mtx.Unlock()
+
+	bodySizeMB := lfu.getSize(value)
+
+	if bodySizeMB > lfu.capacityMB {
 		return
 	}
 
-	if val, found := lfu.nodes[key]; found {
+	val, found := lfu.cache[key]
+
+	if found {
+		bodySizeMB = bodySizeMB - lfu.getSize(*val.Value.(*LfuNode).value)
 		val.Value.(*LfuNode).value = &value
 		lfu.update(val)
-
-		return
 	}
 
-	if len(lfu.nodes) == lfu.capacity {
+	lfu.sizeMB += bodySizeMB
+
+	for lfu.sizeMB > lfu.capacityMB {
 		freqList := lfu.lists[lfu.min].lruCache
-		ejectedLfuNode := freqList.Back()
-		freqList.Remove(ejectedLfuNode)
+		ejectedNode := freqList.Back()
+		freqList.Remove(ejectedNode)
 
 		if freqList.Len() == 0 {
 			delete(lfu.lists, lfu.min)
 		}
 
-		delete(lfu.nodes, ejectedLfuNode.Value.(*LfuNode).key)
+		delete(lfu.cache, ejectedNode.Value.(*LfuNode).key)
+
+		lfu.sizeMB -= lfu.getSize(*ejectedNode.Value.(*LfuNode).value)
 	}
 
-	node := &LfuNode{
-		key:   key,
-		value: &value,
-	}
+	if !found {
+		node := &LfuNode{
+			key:   key,
+			value: &value,
+		}
 
-	addedLfuNode := lfu.moveLfuNode(node, 1)
-	lfu.nodes[key] = addedLfuNode
-	lfu.min = 1
+		addedLfuNode := lfu.moveNode(node, 1)
+		lfu.cache[key] = addedLfuNode
+		lfu.min = 1
+	}
 }
 
-func (lfu *LFUCache) Get(key string) *model.Response {
+func (lfu *LFUCache) LookUp(key string) *model.Response {
 	lfu.mtx.Lock()
 	defer lfu.mtx.Unlock()
 
-	if val, found := lfu.nodes[key]; found {
+	if val, found := lfu.cache[key]; found {
 		lfu.update(val)
 
 		return val.Value.(*LfuNode).value
 	}
 
 	return nil
-}
-
-// Difference between get and peek is that we dont update after peek
-func (lfu *LFUCache) Peek(key string) *model.Response {
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
-
-	if val, found := lfu.nodes[key]; found {
-		return val.Value.(*LfuNode).value
-	}
-
-	return nil
-}
-
-func (lfu *LFUCache) Has(key string) bool {
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
-
-	_, found := lfu.nodes[key]
-
-	return found
-}
-
-func (lfu *LFUCache) Len() int {
-
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
-
-	return len(lfu.nodes)
-}
-
-func (lfu *LFUCache) Clear() {
-
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
-
-	lfu.lists = make(map[int]*FrequencyList)
-	lfu.nodes = make(map[string]*list.Element)
 }
 
 func (lfu *LFUCache) update(node *list.Element) {
@@ -140,10 +116,10 @@ func (lfu *LFUCache) update(node *list.Element) {
 		delete(lfu.lists, count)
 	}
 
-	lfu.moveLfuNode(node.Value.(*LfuNode), count+1)
+	lfu.moveNode(node.Value.(*LfuNode), count+1)
 }
 
-func (lfu *LFUCache) moveLfuNode(node *LfuNode, count int) *list.Element {
+func (lfu *LFUCache) moveNode(node *LfuNode, count int) *list.Element {
 	if _, found := lfu.lists[count]; !found {
 		lfu.lists[count] = &FrequencyList{
 			lruCache: list.New(),
@@ -153,11 +129,28 @@ func (lfu *LFUCache) moveLfuNode(node *LfuNode, count int) *list.Element {
 
 	returnedLfuNode := lfu.lists[count].lruCache.PushFront(node)
 	returnedLfuNode.Value.(*LfuNode).parent = lfu.lists[count]
-	lfu.nodes[returnedLfuNode.Value.(*LfuNode).key] = returnedLfuNode
+	lfu.cache[returnedLfuNode.Value.(*LfuNode).key] = returnedLfuNode
 
 	return returnedLfuNode
 }
 
-func (lfu *LFUCache) Capacity() int {
-	return lfu.capacity
+func (lfu *LFUCache) Size() float64 {
+	lfu.mtx.Lock()
+	defer lfu.mtx.Unlock()
+
+	return lfu.sizeMB
+}
+
+func (lfu *LFUCache) Capacity() float64 {
+	lfu.mtx.Lock()
+	defer lfu.mtx.Unlock()
+
+	return lfu.capacityMB
+}
+
+func (lfu *LFUCache) getSize(value model.Response) float64 {
+	sizeBytes := len(value.Body)
+	sizeMB := float64(sizeBytes) / (1024 * 1024)
+
+	return sizeMB
 }
