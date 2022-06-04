@@ -64,7 +64,7 @@ func RunServer(opts ServerOpts) {
 		}()
 
 		// Trigger graceful shutdown
-		err := server.Shutdown(shutdownCtx)
+		err = server.Shutdown(shutdownCtx)
 		if err != nil {
 			log.Fatal("", rz.Stack(true), rz.Err(err))
 		}

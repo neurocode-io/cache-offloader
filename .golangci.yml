@@ -1,0 +1,94 @@
+run:
+  concurrency: 4
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+
+output:
+  # colored-line-number|line-number|json|tab|checkstyle|code-climate, default is "colored-line-number"
+  format: colored-line-number
+  print-issued-lines: false
+  sort-results: true
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - deadcode
+    - depguard
+    - dogsled
+    - dupl
+    - lll
+    - errcheck
+    - exhaustive
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocyclo
+    - gofmt
+    - goimports
+    - revive
+    - gomnd
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - prealloc
+    - exportloopref
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - nlreturn
+    - whitespace
+    - gocritic
+    - exportloopref
+    - gocognit
+    - gofumpt
+    - godot
+
+  fast: false
+
+issues:
+  max-same-issues: 50
+  max-issues-per-linter: 100
+
+linters-settings:
+  funlen:
+    lines: 100
+    # stmtLimit: 100
+  lll:
+    line-length: 160
+  gomnd:
+    settings:
+      mnd:
+        checks: argument,case,condition,return
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  gocognit:
+    # minimal code complexity to report, 30 by default (but we recommend 10-20)
+    min-complexity: 15
+  gocyclo:
+    # minimal code complexity to report, 30 by default (but we recommend 10-20)
+    min-complexity: 10
+  godot:
+    # comments to be checked: `declarations`, `toplevel`, or `all`
+    scope: declarations
+    # check that each sentence starts with a capital letter
+    capital: true
+  govet:
+    # report about shadowed variables
+    check-shadowing: true

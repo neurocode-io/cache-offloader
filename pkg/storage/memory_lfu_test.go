@@ -96,5 +96,7 @@ func TestLFU_functionality2(t *testing.T) {
 		Body:   []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
 	})
 
+	assert.Nil(t, cache.LookUp("3"))
+	assert.Nil(t, cache.LookUp("2"))
 	assert.Equal(t, 200, cache.LookUp("1").Status)
 }

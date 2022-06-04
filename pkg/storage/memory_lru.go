@@ -21,19 +21,16 @@ type Node struct {
 }
 
 func NewLRUCache(maxSizeMB float64) *LRUCache {
-
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
-	lru := LRUCache{
+	return &LRUCache{
 		capacityMB: maxSizeMB,
 		sizeMB:     0.0,
 		responses:  list.New(),
 		cache:      make(map[string]*list.Element),
 	}
-
-	return &lru
 }
 
 func (lru *LRUCache) Store(key string, value model.Response) {

@@ -10,28 +10,36 @@ BUILD_DATE := $(shell date '+%Y-%m-%d %H:%M:%S')
 VERSION := ${HASH} (${COMMIT_DATE})
 
 
-deps:
-	go mod download
+clean:
+	go clean
+	go clean -testcache
+	rm -rf ./bin ./vendor go.sum coverage.out coverage.out.tmp
+	go mod tidy
+
+lint:
+	golangci-lint run
+
+format:
+	gofumpt -l -w .
 
 build:
-	go build -o app -ldflags="-X 'main.buildVersion=${VERSION}' -X 'main.buildDate=${BUILD_DATE}'" -v ./cmd/${BIN}.go
+	export GO111MODULE=on
+	env GOARCH=amd64 GOOS=linux go build -o bin/${BIN} -ldflags="-s -w -X 'main.version=${VERSION}' -X 'main.buildDate=${BUILD_DATE}'" -v ./cmd/${BIN}.go 
+	env GOARCH=arm64 GOOS=darwin go build -o bin/${BIN}-mac -ldflags="-s -w" -v ./cmd/${BIN}.go
 
 run: fresh
-	./app
+	./bin/${BIN}-mac
 
 fresh: clean build
 
 
-test: clean
-	go test -race ./... -v
+test:
+	GO111MODULE=on go test -race -v -covermode=atomic --coverprofile=coverage.txt ./...
+	go tool cover -func coverage.txt | grep total
 
-cov:
-	go test ./... -v -coverprofile cp.out
+cov: test
+	go tool cover -html=coverage.txt
 
-html-cov: cov
-	go tool cover -html=cp.out
-
-clean:
-	go clean
-	go clean -testcache
-	- rm -f app
+.PHONY: setup
+setup:
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s v1.46.2

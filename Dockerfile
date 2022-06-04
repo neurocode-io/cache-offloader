@@ -1,13 +1,5 @@
-FROM golang:1.16-buster as build
+FROM gcr.io/distroless/base-debian11
 
-WORKDIR /go/src/app
-COPY . ./
+COPY bin/cache-offloader /usr/local/bin/
 
-RUN go mod download \
-  && make build
-
-FROM gcr.io/distroless/base-debian10
-
-COPY --from=build /go/src/app/app /
-
-CMD ["/app"]
+ENTRYPOINT ["cache-offloader"]

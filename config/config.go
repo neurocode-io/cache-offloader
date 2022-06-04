@@ -8,18 +8,16 @@ import (
 	"github.com/skerkour/rz"
 )
 
-var (
-	logLevel = map[string]rz.LogLevel{
-		"debug":    rz.DebugLevel,
-		"info":     rz.InfoLevel,
-		"warn":     rz.WarnLevel,
-		"error":    rz.ErrorLevel,
-		"fatal":    rz.FatalLevel,
-		"panic":    rz.PanicLevel,
-		"none":     rz.NoLevel,
-		"disabled": rz.Disabled,
-	}
-)
+var logLevel = map[string]rz.LogLevel{
+	"debug":    rz.DebugLevel,
+	"info":     rz.InfoLevel,
+	"warn":     rz.WarnLevel,
+	"error":    rz.ErrorLevel,
+	"fatal":    rz.FatalLevel,
+	"panic":    rz.PanicLevel,
+	"none":     rz.NoLevel,
+	"disabled": rz.Disabled,
+}
 
 type RedisConfig struct {
 	ConnectionString string

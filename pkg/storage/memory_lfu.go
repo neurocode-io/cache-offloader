@@ -32,15 +32,13 @@ func NewLFUCache(maxSizeΜΒ float64) *LFUCache {
 		maxSizeΜΒ = 50.0
 	}
 
-	lfu := LFUCache{
+	return &LFUCache{
 		min:        1,
 		capacityMB: maxSizeΜΒ,
 		sizeMB:     0,
 		lists:      make(map[int]*FrequencyList),
 		cache:      make(map[string]*list.Element),
 	}
-
-	return &lfu
 }
 
 func (lfu *LFUCache) Store(key string, value model.Response) {
