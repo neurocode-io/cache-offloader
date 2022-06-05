@@ -32,7 +32,7 @@ type MetricsCollector interface {
 
 type handler struct {
 	cacher           Cacher
-	MetricsCollector MetricsCollector
+	metricsCollector MetricsCollector
 	downstreamURL    url.URL
 }
 
@@ -98,7 +98,7 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 func newStaleWhileRevalidateHandler(c Cacher, m MetricsCollector, url url.URL) handler {
 	return handler{
 		cacher:           c,
-		MetricsCollector: m,
+		metricsCollector: m,
 		downstreamURL:    url,
 	}
 }
@@ -145,7 +145,7 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	logger.Info("serving request from memory")
-	h.MetricsCollector.CacheHit(req.Method, result.Status)
+	h.metricsCollector.CacheHit(req.Method, result.Status)
 	serveResponseFromMemory(res, result)
 }
 
@@ -154,7 +154,7 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		logger := rz.FromCtx(ctx)
 
 		logger.Debug("Got response from downstream service")
-		h.MetricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
+		h.metricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
 
 		if response.StatusCode >= http.StatusInternalServerError {
 			logger.Warn("Won't cache 5XX downstream responses")
