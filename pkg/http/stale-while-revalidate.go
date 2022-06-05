@@ -36,6 +36,12 @@ type handler struct {
 	downstreamURL    url.URL
 }
 
+func handleGzipServeErr(err error) {
+	if err != nil {
+		log.Error("Error occurred serving gzip response from memory", rz.Err(err))
+	}
+}
+
 func getCacheKey(req *http.Request) string {
 	cacheKey := sha256.New()
 	cacheKey.Write([]byte(req.URL.Path))
@@ -68,14 +74,20 @@ func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
 	if res.Header().Get("content-encoding") == "gzip" {
 		var b bytes.Buffer
 		gz := gzip.NewWriter(&b)
-		gz.Write(result.Body)
-		gz.Close()
-		res.Write(b.Bytes())
+		_, err := gz.Write(result.Body)
+		handleGzipServeErr(err)
+		err = gz.Close()
+		handleGzipServeErr(err)
+		_, err = res.Write(b.Bytes())
+		handleGzipServeErr(err)
 
 		return
 	}
 
-	res.Write(result.Body)
+	_, err := res.Write(result.Body)
+	if err != nil {
+		log.Error("Error occurred serving response from memory", rz.Err(err))
+	}
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
@@ -144,23 +156,26 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		logger.Debug("Got response from downstream service")
 		h.MetricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
 
-		if response.StatusCode >= 500 {
+		if response.StatusCode >= http.StatusInternalServerError {
 			logger.Warn("Won't cache 5XX downstream responses")
 
 			return nil
 		}
 
 		var body []byte
-		var err error
+		var readErr error
 		if response.Header.Get("content-encoding") == "gzip" {
-			reader, _ := gzip.NewReader(response.Body)
-			body, err = io.ReadAll(reader)
+			reader, err := gzip.NewReader(response.Body)
+			if err != nil {
+				return err
+			}
+			body, readErr = io.ReadAll(reader)
 		} else {
-			body, err = io.ReadAll(response.Body)
+			body, readErr = io.ReadAll(response.Body)
 		}
 
-		if err != nil {
-			return err
+		if readErr != nil {
+			return readErr
 		}
 
 		header := response.Header
@@ -169,7 +184,7 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 
 		response.Body = newBody
 
-		if err = h.cacher.Store(ctx, hashKey, &model.Response{Body: body, Header: header, Status: statusCode}); err != nil {
+		if err := h.cacher.Store(ctx, hashKey, &model.Response{Body: body, Header: header, Status: statusCode}); err != nil {
 			return err
 		}
 
@@ -181,5 +196,8 @@ func writeErrorResponse(res http.ResponseWriter, status int, message string) {
 	log.Error(message)
 
 	res.WriteHeader(status)
-	res.Write([]byte(message))
+	_, err := res.Write([]byte(message))
+	if err != nil {
+		log.Error("Error occurred writing error response", rz.Err(err))
+	}
 }

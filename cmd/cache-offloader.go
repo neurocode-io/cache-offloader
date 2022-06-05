@@ -16,29 +16,33 @@ import (
 )
 
 func getInMemoryStorage(cfg config.Config) http.Cacher {
-	if strings.ToLower(cfg.CacheConfig.Strategy) == "lru" {
+	switch strings.ToLower(cfg.CacheConfig.Strategy) {
+	case "lru":
 		return storage.NewHashLRU(cfg.MemoryConfig.Size, cfg.CacheConfig)
-	} else if strings.ToLower(cfg.CacheConfig.Strategy) == "lfu" {
+	case "lfu":
 		// cacher = storage.NewLFUCache(cfg.MemoryConfig.Size)
 		// opts.Cacher = storage.NewLFUCache(50)
-	} else {
+	default:
 		log.Fatal(fmt.Sprintf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy))
 	}
 
-	return storage.NewHashLRU(cfg.MemoryConfig.Size, cfg.CacheConfig)
+	return nil
 }
 
 func getRedisMemoryStorage(cfg config.Config) http.Cacher {
 	r := client.NewRedis(cfg.RedisConfig)
-	if strings.ToLower(cfg.CacheConfig.Strategy) == "lru" {
-		// configure redis for LRU
-	} else if strings.ToLower(cfg.CacheConfig.Strategy) == "lfu" {
-		// configure redis for LFU
-	} else {
+	switch strings.ToLower(cfg.CacheConfig.Strategy) {
+	case "lru":
+		// configure redis for LRU cache
+		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeout)
+	case "lfu":
+		// configure redis for LFU cache
+		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeout)
+	default:
 		log.Fatal(fmt.Sprintf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy))
 	}
 
-	return storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeoutMilliseconds)
+	return nil
 }
 
 func main() {
@@ -51,13 +55,14 @@ func main() {
 		ReadinessChecker: probes.NewReadinessChecker(),
 	}
 
-	if strings.ToLower(cfg.ServerConfig.Storage) == "memory" {
+	switch strings.ToLower(cfg.ServerConfig.Storage) {
+	case "memory":
 		opts.Cacher = getInMemoryStorage(cfg)
-	} else if strings.ToLower(cfg.ServerConfig.Storage) == "redis" {
-		opts.Cacher = getInMemoryStorage(cfg)
+	case "redis":
+		opts.Cacher = getRedisMemoryStorage(cfg)
 		r := client.NewRedis(cfg.RedisConfig)
-		opts.ReadinessChecker = storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeoutMilliseconds)
-	} else {
+		opts.ReadinessChecker = storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeout)
+	default:
 		log.Fatal(fmt.Sprintf("Unknown storage: %s. Supported storage options are memory and redis", cfg.ServerConfig.Storage))
 	}
 

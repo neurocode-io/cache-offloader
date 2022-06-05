@@ -1,13 +1,13 @@
 package metrics
 
-type nopMetricsCollector struct{}
+type NopMetricsCollector struct{}
 
-func NewNopMetricsCollector() nopMetricsCollector {
-	return nopMetricsCollector{}
+func NewNopMetricsCollector() NopMetricsCollector {
+	return NopMetricsCollector{}
 }
 
-func (m nopMetricsCollector) CacheHit(method string, statusCode int) {
+func (m NopMetricsCollector) CacheHit(method string, statusCode int) {
 }
 
-func (m nopMetricsCollector) CacheMiss(method string, statusCode int) {
+func (m NopMetricsCollector) CacheMiss(method string, statusCode int) {
 }

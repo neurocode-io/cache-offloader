@@ -9,7 +9,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-type hashLRU struct {
+type HashLRU struct {
 	cfg                config.CacheConfig
 	maxSize            float64
 	size               float64
@@ -17,12 +17,12 @@ type hashLRU struct {
 	lock               sync.RWMutex
 }
 
-func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *hashLRU {
+func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *HashLRU {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
-	return &hashLRU{
+	return &HashLRU{
 		maxSize:  maxSizeMB,
 		size:     0,
 		oldCache: make(map[string]model.Response),
@@ -31,12 +31,12 @@ func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *hashLRU {
 	}
 }
 
-func (lru *hashLRU) update(key string, value model.Response) {
+func (lru *HashLRU) update(key string, value model.Response) {
 	lru.newCache[key] = value
 	// number of bytes in a byte slice use the len function
 	bodyInBytes := len(value.Body)
 	bodyInMB := float64(bodyInBytes) / (1024 * 1024)
-	lru.size = lru.size + bodyInMB
+	lru.size += bodyInMB
 
 	if lru.size >= lru.maxSize {
 		lru.size = 0
@@ -50,8 +50,8 @@ func (lru *hashLRU) update(key string, value model.Response) {
 	}
 }
 
-func (lru *hashLRU) Store(ctx context.Context, key string, value *model.Response) error {
-	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
+func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response) error {
+	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeout*time.Millisecond)
 	defer cancel()
 
 	proc := make(chan struct{}, 1)
@@ -74,29 +74,31 @@ func (lru *hashLRU) Store(ctx context.Context, key string, value *model.Response
 	}
 }
 
-func (lru *hashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeoutMilliseconds*time.Millisecond)
+func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeout*time.Millisecond)
 	defer cancel()
 
 	proc := make(chan *model.Response, 1)
 	go func() {
-		lru.lock.Lock()
+		lru.lock.RLock()
 
 		if value, found := lru.newCache[key]; found {
-			lru.lock.Unlock()
+			lru.lock.RUnlock()
 			proc <- &value
+
 			return
 		}
 
 		if value, found := lru.oldCache[key]; found {
 			delete(lru.oldCache, key)
 			lru.update(key, value)
-			lru.lock.Unlock()
+			lru.lock.RUnlock()
 			proc <- &value
+
 			return
 		}
 
-		lru.lock.Unlock()
+		lru.lock.RUnlock()
 		proc <- nil
 	}()
 
@@ -106,8 +108,8 @@ func (lru *hashLRU) LookUp(ctx context.Context, key string) (*model.Response, er
 	case value := <-proc:
 		if value != nil {
 			return value, nil
-		} else {
-			return nil, nil
 		}
+
+		return nil, nil
 	}
 }

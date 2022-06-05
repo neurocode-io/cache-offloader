@@ -2,12 +2,12 @@ package probes
 
 import "context"
 
-type readinessChecker struct{}
+type ReadinessChecker struct{}
 
-func NewReadinessChecker() readinessChecker {
-	return readinessChecker{}
+func NewReadinessChecker() ReadinessChecker {
+	return ReadinessChecker{}
 }
 
-func (r readinessChecker) CheckConnection(ctx context.Context) error {
+func (r ReadinessChecker) CheckConnection(ctx context.Context) error {
 	return nil
 }

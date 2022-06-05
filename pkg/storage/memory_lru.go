@@ -44,7 +44,7 @@ func (lru *LRUCache) Store(key string, value model.Response) {
 	}
 
 	if val, found := lru.cache[key]; found {
-		bodySizeMB = bodySizeMB - lru.getSize(*val.Value.(*Node).value)
+		bodySizeMB -= lru.getSize(*val.Value.(*Node).value)
 		val.Value.(*Node).value = &value
 		lru.responses.MoveToFront(val)
 	} else {
@@ -70,6 +70,7 @@ func (lru *LRUCache) LookUp(key string) *model.Response {
 
 	if value, found := lru.cache[key]; found {
 		lru.responses.MoveToFront(value)
+
 		return value.Value.(*Node).value
 	}
 

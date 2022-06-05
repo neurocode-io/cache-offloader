@@ -41,12 +41,12 @@ type ServerConfig struct {
 }
 
 type CacheConfig struct {
-	Strategy                   string
-	StaleWhileRevalidate       int
-	CommandTimeoutMilliseconds time.Duration
-	IgnorePaths                []string
-	HashShouldQuery            bool
-	HashQueryIgnore            map[string]bool
+	Strategy             string
+	StaleWhileRevalidate int
+	CommandTimeout       time.Duration
+	IgnorePaths          []string
+	HashShouldQuery      bool
+	HashQueryIgnore      map[string]bool
 }
 type Config struct {
 	ServerConfig ServerConfig
@@ -84,12 +84,12 @@ func New() Config {
 	return Config{
 		ServerConfig: serverConfig,
 		CacheConfig: CacheConfig{
-			Strategy:                   getEnv("CACHE_STRATEGY", ""),
-			IgnorePaths:                getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
-			StaleWhileRevalidate:       getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-			HashShouldQuery:            getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
-			HashQueryIgnore:            hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
-			CommandTimeoutMilliseconds: time.Duration(getEnvAsInt("COMMAND_TIMEOUT_MS", "50")),
+			Strategy:             getEnv("CACHE_STRATEGY", ""),
+			IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
+			StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
+			HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+			HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
+			CommandTimeout:       time.Duration(getEnvAsInt("COMMAND_TIMEOUT_MS", "50")) * time.Millisecond,
 		},
 		RedisConfig: RedisConfig{
 			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),

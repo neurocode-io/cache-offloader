@@ -5,16 +5,16 @@ import (
 	"neurocode.io/cache-offloader/config"
 )
 
-type redisClient struct {
+type RedisClient struct {
 	*redis.Client
 }
 
-func NewRedis(config config.RedisConfig) *redisClient {
+func NewRedis(config config.RedisConfig) *RedisClient {
 	db := redis.NewClient(&redis.Options{
 		Addr:     config.ConnectionString,
 		Password: config.Password,
 		DB:       config.Database,
 	})
 
-	return &redisClient{db}
+	return &RedisClient{db}
 }

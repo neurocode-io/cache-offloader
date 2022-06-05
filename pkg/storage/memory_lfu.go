@@ -27,14 +27,14 @@ type LfuNode struct {
 	key    string
 }
 
-func NewLFUCache(maxSizeΜΒ float64) *LFUCache {
-	if maxSizeΜΒ <= 0 {
-		maxSizeΜΒ = 50.0
+func NewLFUCache(maxSizeMB float64) *LFUCache {
+	if maxSizeMB <= 0 {
+		maxSizeMB = 50.0
 	}
 
 	return &LFUCache{
 		min:        1,
-		capacityMB: maxSizeΜΒ,
+		capacityMB: maxSizeMB,
 		sizeMB:     0,
 		lists:      make(map[int]*FrequencyList),
 		cache:      make(map[string]*list.Element),
@@ -54,7 +54,7 @@ func (lfu *LFUCache) Store(key string, value model.Response) {
 	val, found := lfu.cache[key]
 
 	if found {
-		bodySizeMB = bodySizeMB - lfu.getSize(*val.Value.(*LfuNode).value)
+		bodySizeMB -= lfu.getSize(*val.Value.(*LfuNode).value)
 		val.Value.(*LfuNode).value = &value
 		lfu.update(val)
 	}

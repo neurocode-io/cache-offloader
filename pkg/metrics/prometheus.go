@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/skerkour/rz"
+	"github.com/skerkour/rz/log"
 )
 
 const (
@@ -12,7 +14,7 @@ const (
 	cacheMiss = "cacheMiss"
 )
 
-type prometheusCollector struct {
+type PrometheusCollector struct {
 	httpMetrics *prometheus.CounterVec
 }
 
@@ -28,19 +30,22 @@ func isValidHTTPMethod(maybeMethod string) bool {
 	return false
 }
 
-func NewPrometheusCollector() prometheusCollector {
+func NewPrometheusCollector() PrometheusCollector {
 	httpMetricsCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
 			Help: "Number of http requests by statusCode, http method and result",
 		}, []string{"statusCode", "method", "result"})
 
-	prometheus.Register(httpMetricsCounter)
+	err := prometheus.Register(httpMetricsCounter)
+	if err != nil {
+		log.Warn("", rz.Stack(true), rz.Err(err))
+	}
 
-	return prometheusCollector{httpMetrics: httpMetricsCounter}
+	return PrometheusCollector{httpMetrics: httpMetricsCounter}
 }
 
-func (m prometheusCollector) CacheHit(method string, statusCode int) {
+func (m PrometheusCollector) CacheHit(method string, statusCode int) {
 	status := strconv.Itoa(statusCode)
 	if !isValidHTTPMethod(method) {
 		method = "NA"
@@ -49,7 +54,7 @@ func (m prometheusCollector) CacheHit(method string, statusCode int) {
 	m.httpMetrics.WithLabelValues(status, method, cacheHit).Inc()
 }
 
-func (m prometheusCollector) CacheMiss(method string, statusCode int) {
+func (m PrometheusCollector) CacheMiss(method string, statusCode int) {
 	status := strconv.Itoa(statusCode)
 	if !isValidHTTPMethod(method) {
 		method = "NA"

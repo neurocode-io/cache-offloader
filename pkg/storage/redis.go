@@ -28,11 +28,11 @@ func NewRedisStorage(db IRedis, commandTimeout time.Duration) RedisStorage {
 	return RedisStorage{db: db, commandTimeout: commandTimeout}
 }
 
-func (r RedisStorage) LookUp(ctx context.Context, requestId string) (*model.Response, error) {
+func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Response, error) {
 	logger := rz.FromCtx(ctx)
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
 	defer cancel()
-	result, err := r.db.Get(ctx, requestId).Result()
+	result, err := r.db.Get(ctx, requestID).Result()
 
 	if err == redis.Nil {
 		logger.Debug("Redis-repository: key not found")
@@ -47,13 +47,12 @@ func (r RedisStorage) LookUp(ctx context.Context, requestId string) (*model.Resp
 	}
 
 	response := &model.Response{}
-	json.Unmarshal([]byte(result), response)
-	// r.metrics.Success()
+	err = json.Unmarshal([]byte(result), response)
 
-	return response, nil
+	return response, err
 }
 
-func (r RedisStorage) Store(ctx context.Context, requestId string, resp *model.Response) error {
+func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.Response) error {
 	logger := rz.FromCtx(ctx)
 
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
@@ -66,7 +65,7 @@ func (r RedisStorage) Store(ctx context.Context, requestId string, resp *model.R
 		return err
 	}
 
-	err = r.db.Set(ctx, requestId, storedResp, expirationTime).Err()
+	err = r.db.Set(ctx, requestID, storedResp, expirationTime).Err()
 	if err != nil {
 		logger.Error("Redis-repository: Store error.", rz.Err(err))
 		// r.metrics.StorageError()
