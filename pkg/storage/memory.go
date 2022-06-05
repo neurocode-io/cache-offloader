@@ -51,27 +51,15 @@ func (lru *HashLRU) update(key string, value model.Response) {
 }
 
 func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response) error {
-	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeout*time.Millisecond)
-	defer cancel()
-
-	proc := make(chan struct{}, 1)
-	go func() {
-		lru.lock.Lock()
-		if _, found := lru.newCache[key]; found {
-			lru.newCache[key] = *value
-		} else {
-			lru.update(key, *value)
-		}
-		lru.lock.Unlock()
-		proc <- struct{}{}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-proc:
-		return nil
+	lru.lock.Lock()
+	if _, found := lru.newCache[key]; found {
+		lru.newCache[key] = *value
+	} else {
+		lru.update(key, *value)
 	}
+	lru.lock.Unlock()
+
+	return nil
 }
 
 func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
