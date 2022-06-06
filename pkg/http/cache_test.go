@@ -61,8 +61,7 @@ func mustURL(t *testing.T, downstreamURL string) url.URL {
 	return *u
 }
 
-// nolint:funlen
-func TestStaleWhileRevalidate(t *testing.T) {
+func TestCacheHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	proxied := http.StatusUseProxy

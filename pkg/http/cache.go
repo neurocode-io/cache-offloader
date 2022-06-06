@@ -19,7 +19,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-//go:generate mockgen -source=./stale-while-revalidate.go -destination=./mock_test.go -package=http
+//go:generate mockgen -source=./cache.go -destination=./cache-mock_test.go -package=http
 type Cacher interface {
 	LookUp(context.Context, string) (*model.Response, error)
 	Store(context.Context, string, *model.Response) error
@@ -95,7 +95,7 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
-func newStaleWhileRevalidateHandler(c Cacher, m MetricsCollector, url url.URL) handler {
+func newCacheHandler(c Cacher, m MetricsCollector, url url.URL) handler {
 	return handler{
 		cacher:           c,
 		metricsCollector: m,

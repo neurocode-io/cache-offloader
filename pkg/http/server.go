@@ -28,7 +28,7 @@ func RunServer(opts ServerOpts) {
 	}
 
 	mux := h.NewServeMux()
-	mux.Handle("/", newStaleWhileRevalidateHandler(opts.Cacher, opts.MetricsCollector, *downstreamURL))
+	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, *downstreamURL))
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
 
