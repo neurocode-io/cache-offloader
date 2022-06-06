@@ -48,7 +48,7 @@ func getCacheKey(req *http.Request) string {
 
 	cacheConfig := config.New().CacheConfig
 
-	if !cacheConfig.HashShouldQuery {
+	if !cacheConfig.ShouldHashQuery {
 		return fmt.Sprintf("% x", cacheKey.Sum(nil))
 	}
 

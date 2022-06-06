@@ -18,7 +18,7 @@ import (
 func getInMemoryStorage(cfg config.Config) http.Cacher {
 	switch strings.ToLower(cfg.CacheConfig.Strategy) {
 	case "lru":
-		return storage.NewHashLRU(cfg.MemoryConfig.Size, cfg.CacheConfig)
+		return storage.NewHashLRU(cfg.MemoryConfig.Size)
 	case "lfu":
 		// cacher = storage.NewLFUCache(cfg.MemoryConfig.Size)
 		// opts.Cacher = storage.NewLFUCache(50)
@@ -34,10 +34,10 @@ func getRedisMemoryStorage(cfg config.Config) http.Cacher {
 	switch strings.ToLower(cfg.CacheConfig.Strategy) {
 	case "lru":
 		// configure redis for LRU cache
-		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeout)
+		return storage.NewRedisStorage(r.Client)
 	case "lfu":
 		// configure redis for LFU cache
-		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeout)
+		return storage.NewRedisStorage(r.Client)
 	default:
 		log.Fatal(fmt.Sprintf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy))
 	}
@@ -61,7 +61,7 @@ func main() {
 	case "redis":
 		opts.Cacher = getRedisMemoryStorage(cfg)
 		r := client.NewRedis(cfg.RedisConfig)
-		opts.ReadinessChecker = storage.NewRedisStorage(r.Client, cfg.CacheConfig.CommandTimeout)
+		opts.ReadinessChecker = storage.NewRedisStorage(r.Client)
 	default:
 		log.Fatal(fmt.Sprintf("Unknown storage: %s. Supported storage options are memory and redis", cfg.ServerConfig.Storage))
 	}

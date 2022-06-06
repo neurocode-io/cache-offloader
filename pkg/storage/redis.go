@@ -24,7 +24,8 @@ type (
 	}
 )
 
-func NewRedisStorage(db IRedis, commandTimeout time.Duration) RedisStorage {
+func NewRedisStorage(db IRedis) RedisStorage {
+	commandTimeout := time.Millisecond * 100
 	return RedisStorage{db: db, commandTimeout: commandTimeout}
 }
 

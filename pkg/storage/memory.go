@@ -17,7 +17,7 @@ type HashLRU struct {
 	lock               sync.RWMutex
 }
 
-func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *HashLRU {
+func NewHashLRU(maxSizeMB float64) *HashLRU {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -27,7 +27,6 @@ func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *HashLRU {
 		size:     0,
 		oldCache: make(map[string]model.Response),
 		newCache: make(map[string]model.Response),
-		cfg:      cfg,
 	}
 }
 
@@ -51,31 +50,20 @@ func (lru *HashLRU) update(key string, value model.Response) {
 }
 
 func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response) error {
-	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeout*time.Millisecond)
-	defer cancel()
-
-	proc := make(chan struct{}, 1)
-	go func() {
-		lru.lock.Lock()
-		if _, found := lru.newCache[key]; found {
-			lru.newCache[key] = *value
-		} else {
-			lru.update(key, *value)
-		}
-		lru.lock.Unlock()
-		proc <- struct{}{}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-proc:
-		return nil
+	lru.lock.Lock()
+	if _, found := lru.newCache[key]; found {
+		lru.newCache[key] = *value
+	} else {
+		lru.update(key, *value)
 	}
+	lru.lock.Unlock()
+
+	return nil
 }
 
 func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeout*time.Millisecond)
+	timeout := time.Millisecond * 100
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	proc := make(chan *model.Response, 1)
