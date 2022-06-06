@@ -36,10 +36,9 @@ func TestHashLRUCommandExeeeded(t *testing.T) {
 	lru := NewHashLRU(oneMegaByte)
 	ctx := context.Background()
 
-	err := lru.Store(ctx, "1", &model.Response{
-		Status: 200,
-		Body:   []byte("body1"),
-	})
+	lru.commandTimeout = 0
+	resp, err := lru.LookUp(ctx, "1")
 
+	assert.Nil(t, resp)
 	assert.EqualError(t, err, "context deadline exceeded")
 }

@@ -67,7 +67,7 @@ issues:
 
 linters-settings:
   funlen:
-    lines: 100
+    lines: 120
     # stmtLimit: 100
   lll:
     line-length: 160

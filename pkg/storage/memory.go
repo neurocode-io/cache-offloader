@@ -13,6 +13,7 @@ type HashLRU struct {
 	size               float64
 	oldCache, newCache map[string]model.Response
 	lock               sync.RWMutex
+	commandTimeout     time.Duration
 }
 
 func NewHashLRU(maxSizeMB float64) *HashLRU {
@@ -21,10 +22,11 @@ func NewHashLRU(maxSizeMB float64) *HashLRU {
 	}
 
 	return &HashLRU{
-		maxSize:  maxSizeMB,
-		size:     0,
-		oldCache: make(map[string]model.Response),
-		newCache: make(map[string]model.Response),
+		maxSize:        maxSizeMB,
+		size:           0,
+		oldCache:       make(map[string]model.Response),
+		newCache:       make(map[string]model.Response),
+		commandTimeout: commandTimeout,
 	}
 }
 
@@ -60,8 +62,7 @@ func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response
 }
 
 func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
-	timeout := time.Millisecond * 100
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, lru.commandTimeout)
 	defer cancel()
 
 	proc := make(chan *model.Response, 1)

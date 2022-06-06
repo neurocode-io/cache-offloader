@@ -10,11 +10,6 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-const (
-	expirationTime = 0 * time.Second
-	commandTimeout = time.Millisecond * 100
-)
-
 type (
 	IRedis interface {
 		Get(ctx context.Context, key string) *redis.StringCmd

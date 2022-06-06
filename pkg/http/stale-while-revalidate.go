@@ -128,7 +128,7 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	result, err := h.cacher.LookUp(logCtx, hashKey)
 	if err != nil {
-		writeErrorResponse(res, http.StatusBadGateway, fmt.Sprintf("Storage did not respond in time or error occurred: %v", err))
+		writeErrorResponse(res, http.StatusBadGateway, fmt.Errorf("storage error occurred: %v", err))
 
 		return
 	}
@@ -189,12 +189,12 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 	}
 }
 
-func writeErrorResponse(res http.ResponseWriter, status int, message string) {
-	log.Error().Msg(message)
+func writeErrorResponse(res http.ResponseWriter, status int, err error) {
+	log.Error().Err(err).Msg("error occurred")
 
 	res.WriteHeader(status)
-	_, err := res.Write([]byte(message))
-	if err != nil {
-		log.Error().Err(err).Msg("Error occurred writing error response")
+	_, errWrite := res.Write([]byte("error occurred"))
+	if errWrite != nil {
+		log.Error().Err(errWrite).Msg("Error occurred writing error response")
 	}
 }
