@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/skerkour/rz"
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog/log"
+
 	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
 )
@@ -38,7 +38,7 @@ type handler struct {
 
 func handleGzipServeErr(err error) {
 	if err != nil {
-		log.Error("Error occurred serving gzip response from memory", rz.Err(err))
+		log.Error().Err(err).Msg("Error occurred serving gzip response from memory")
 	}
 }
 
@@ -86,12 +86,12 @@ func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
 
 	_, err := res.Write(result.Body)
 	if err != nil {
-		log.Error("Error occurred serving response from memory", rz.Err(err))
+		log.Error().Err(err).Msg("Error occurred serving response from memory")
 	}
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
-	log.Error("Error occurred", rz.Err(err))
+	log.Error().Err(err).Msg("Error occurred")
 	http.Error(res, "Something bad happened", http.StatusBadGateway)
 }
 
@@ -106,22 +106,19 @@ func newStaleWhileRevalidateHandler(c Cacher, m MetricsCollector, url url.URL) h
 func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	proxy := httputil.NewSingleHostReverseProxy(&h.downstreamURL)
 	proxy.ErrorHandler = errHandler
-	logger := log.With(rz.Fields(
-		rz.String("path", req.URL.Path),
-		rz.String("method", req.Method),
-	))
-	ctx := logger.ToCtx(req.Context())
+	logger := log.With().Str("path", req.URL.Path).Str("method", req.Method).Logger()
+	logCtx := logger.WithContext(req.Context())
 
 	// websockets
 	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
-		logger.Info("will not cache websocket request")
+		logger.Info().Msg("will not cache websocket request")
 		proxy.ServeHTTP(res, req)
 
 		return
 	}
 
 	if !(strings.ToLower(req.Method) == "get") {
-		logger.Debug("will not cache non-GET request")
+		logger.Debug().Msg("will not cache non-GET request")
 		proxy.ServeHTTP(res, req)
 
 		return
@@ -129,7 +126,7 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	hashKey := getCacheKey(req)
 
-	result, err := h.cacher.LookUp(ctx, hashKey)
+	result, err := h.cacher.LookUp(logCtx, hashKey)
 	if err != nil {
 		writeErrorResponse(res, http.StatusBadGateway, fmt.Sprintf("Storage did not respond in time or error occurred: %v", err))
 
@@ -137,27 +134,27 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if result == nil {
-		proxy.ModifyResponse = h.cacheResponse(ctx, hashKey)
-		logger.Debug("response from downstream cached")
+		proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
+		logger.Debug().Msg("response from downstream cached")
 		proxy.ServeHTTP(res, req)
 
 		return
 	}
 
-	logger.Info("serving request from memory")
+	logger.Info().Msg("serving request from memory")
 	h.metricsCollector.CacheHit(req.Method, result.Status)
 	serveResponseFromMemory(res, result)
 }
 
 func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
 	return func(response *http.Response) error {
-		logger := rz.FromCtx(ctx)
+		logger := log.Ctx(ctx)
 
-		logger.Debug("Got response from downstream service")
+		logger.Debug().Msg("Got response from downstream service")
 		h.metricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
 
 		if response.StatusCode >= http.StatusInternalServerError {
-			logger.Warn("Won't cache 5XX downstream responses")
+			logger.Warn().Msg("Won't cache 5XX downstream responses")
 
 			return nil
 		}
@@ -193,11 +190,11 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 }
 
 func writeErrorResponse(res http.ResponseWriter, status int, message string) {
-	log.Error(message)
+	log.Error().Msg(message)
 
 	res.WriteHeader(status)
 	_, err := res.Write([]byte(message))
 	if err != nil {
-		log.Error("Error occurred writing error response", rz.Err(err))
+		log.Error().Err(err).Msg("Error occurred writing error response")
 	}
 }

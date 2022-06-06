@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
-	"github.com/skerkour/rz"
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/client"
 	"neurocode.io/cache-offloader/pkg/http"
@@ -23,7 +23,7 @@ func getInMemoryStorage(cfg config.Config) http.Cacher {
 		// cacher = storage.NewLFUCache(cfg.MemoryConfig.Size)
 		// opts.Cacher = storage.NewLFUCache(50)
 	default:
-		log.Fatal(fmt.Sprintf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy))
+		log.Fatal().Msgf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy)
 	}
 
 	return nil
@@ -39,15 +39,24 @@ func getRedisMemoryStorage(cfg config.Config) http.Cacher {
 		// configure redis for LFU cache
 		return storage.NewRedisStorage(r.Client)
 	default:
-		log.Fatal(fmt.Sprintf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy))
+		log.Fatal().Msgf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy)
 	}
 
 	return nil
 }
 
+func setupLogging(logLevel zerolog.Level) {
+	zerolog.SetGlobalLevel(logLevel)
+	zerolog.MessageFieldName = "msg"
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+	l := log.Level(logLevel)
+	zerolog.DefaultContextLogger = &l
+}
+
 func main() {
 	cfg := config.New()
-	log.SetLogger(log.With(rz.Level(cfg.ServerConfig.LogLevel), rz.TimeFieldFormat(time.RFC3339Nano)))
+	setupLogging(cfg.ServerConfig.LogLevel)
 	m := metrics.NewPrometheusCollector()
 	opts := http.ServerOpts{
 		Config:           cfg,
@@ -63,7 +72,7 @@ func main() {
 		r := client.NewRedis(cfg.RedisConfig)
 		opts.ReadinessChecker = storage.NewRedisStorage(r.Client)
 	default:
-		log.Fatal(fmt.Sprintf("Unknown storage: %s. Supported storage options are memory and redis", cfg.ServerConfig.Storage))
+		log.Fatal().Msgf("Unknown storage: %s. Supported storage options are memory and redis", cfg.ServerConfig.Storage)
 	}
 
 	http.RunServer(opts)

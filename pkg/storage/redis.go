@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/skerkour/rz"
+	"github.com/rs/zerolog/log"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
@@ -32,19 +32,19 @@ func NewRedisStorage(db IRedis) RedisStorage {
 }
 
 func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Response, error) {
-	logger := rz.FromCtx(ctx)
+	logger := log.Ctx(ctx)
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
 	defer cancel()
 	result, err := r.db.Get(ctx, requestID).Result()
 
 	if err == redis.Nil {
-		logger.Debug("Redis-repository: key not found")
+		logger.Debug().Msg("Redis-repository: key not found")
 
 		return nil, nil
 	}
 
 	if err != nil {
-		logger.Error("Redis-repository: LookUp error.", rz.Err(err))
+		logger.Error().Err(err).Msg("Redis-repository: LookUp error.")
 
 		return nil, err
 	}
@@ -56,21 +56,18 @@ func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Resp
 }
 
 func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.Response) error {
-	logger := rz.FromCtx(ctx)
-
-	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
-	defer cancel()
+	logger := log.Ctx(ctx)
 
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
-		logger.Error("Redis-repository: Store error; failed to json encode the http response.", rz.Err(err))
+		logger.Error().Err(err).Msg("Redis-repository: Store error; failed to json encode the http response")
 
 		return err
 	}
 
 	err = r.db.Set(ctx, requestID, storedResp, expirationTime).Err()
 	if err != nil {
-		logger.Error("Redis-repository: Store error.", rz.Err(err))
+		logger.Error().Err(err).Msg("Redis-repository: Store error.")
 
 		return err
 	}

@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/skerkour/rz"
+	"github.com/rs/zerolog"
 )
 
-var logLevel = map[string]rz.LogLevel{
-	"debug":    rz.DebugLevel,
-	"info":     rz.InfoLevel,
-	"warn":     rz.WarnLevel,
-	"error":    rz.ErrorLevel,
-	"fatal":    rz.FatalLevel,
-	"panic":    rz.PanicLevel,
-	"none":     rz.NoLevel,
-	"disabled": rz.Disabled,
+var logLevel = map[string]zerolog.Level{
+	"debug":    zerolog.DebugLevel,
+	"info":     zerolog.InfoLevel,
+	"warn":     zerolog.WarnLevel,
+	"error":    zerolog.ErrorLevel,
+	"fatal":    zerolog.FatalLevel,
+	"panic":    zerolog.PanicLevel,
+	"none":     zerolog.NoLevel,
+	"disabled": zerolog.Disabled,
 }
 
 type RedisConfig struct {
@@ -34,7 +34,7 @@ type ServerConfig struct {
 	GracePeriod    int
 	DownstreamHost string
 	Storage        string // inMemory or redis
-	LogLevel       rz.LogLevel
+	LogLevel       zerolog.Level
 }
 
 type CacheConfig struct {

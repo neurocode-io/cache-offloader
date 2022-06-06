@@ -1,13 +1,12 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/skerkour/rz"
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func hashQueryIgnoreMap(queryIgnore []string) map[string]bool {
@@ -26,28 +25,28 @@ func getEnv(key, defaultVal string) string {
 	}
 
 	if defaultVal == "" {
-		log.Fatal(key + " not set environment variable")
+		log.Fatal().Msgf("%s is not set", key)
 	}
 
 	return defaultVal
 }
 
-func getEnvAsLogLevel(key string) rz.LogLevel {
+func getEnvAsLogLevel(key string) zerolog.Level {
 	value, exists := os.LookupEnv(key)
 
 	if !exists {
-		log.Info("SERVER_LOG_LEVEL was not set, falling back to warn level")
+		log.Info().Msg("SERVER_LOG_LEVEL was not set, falling back to warn level")
 
-		return rz.WarnLevel
+		return zerolog.WarnLevel
 	}
 
 	if level, ok := logLevel[strings.ToLower(value)]; ok {
 		return level
 	}
 
-	log.Warn(fmt.Sprintf("SERVER_LOG_LEVEL: %s is unknown, falling back to warn level", value))
+	log.Warn().Msgf("SERVER_LOG_LEVEL: %s is unknown, falling back to warn level", value)
 
-	return rz.WarnLevel
+	return zerolog.WarnLevel
 }
 
 func getEnvAsSlice(key string) []string {
@@ -65,7 +64,7 @@ func getEnvAsInt(key, defaultVal string) int {
 	if err != nil {
 		value, err = strconv.Atoi(defaultVal)
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal))
+			log.Fatal().Msgf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
 		}
 	}
 
@@ -79,7 +78,7 @@ func getEnvAsFloat(key, defaultVal string) float64 {
 	if err != nil {
 		value, err = strconv.ParseFloat(defaultVal, bitSize)
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal))
+			log.Fatal().Msgf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
 		}
 	}
 
@@ -92,7 +91,7 @@ func getEnvAsBool(key, defaultVal string) bool {
 	if err != nil {
 		value, err = strconv.ParseBool(defaultVal)
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Key: %v not a bool. DefaultValue: %v also not a bool", key, defaultVal))
+			log.Fatal().Msgf("Key: %v not a bool. DefaultValue: %v also not a bool", key, defaultVal)
 		}
 	}
 
