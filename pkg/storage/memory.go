@@ -5,12 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type HashLRU struct {
-	cfg                config.CacheConfig
 	maxSize            float64
 	size               float64
 	oldCache, newCache map[string]model.Response

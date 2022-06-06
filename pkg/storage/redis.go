@@ -10,7 +10,10 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-const expirationTime = 0 * time.Second
+const (
+	expirationTime = 0 * time.Second
+	commandTimeout = time.Millisecond * 100
+)
 
 type (
 	IRedis interface {
@@ -25,7 +28,6 @@ type (
 )
 
 func NewRedisStorage(db IRedis) RedisStorage {
-	commandTimeout := time.Millisecond * 100
 	return RedisStorage{db: db, commandTimeout: commandTimeout}
 }
 
@@ -37,13 +39,13 @@ func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Resp
 
 	if err == redis.Nil {
 		logger.Debug("Redis-repository: key not found")
-		// r.metrics.Success()
+
 		return nil, nil
 	}
 
 	if err != nil {
 		logger.Error("Redis-repository: LookUp error.", rz.Err(err))
-		// r.metrics.LookUpError()
+
 		return nil, err
 	}
 
@@ -62,17 +64,16 @@ func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.R
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
 		logger.Error("Redis-repository: Store error; failed to json encode the http response.", rz.Err(err))
-		// r.metrics.StorageError()
+
 		return err
 	}
 
 	err = r.db.Set(ctx, requestID, storedResp, expirationTime).Err()
 	if err != nil {
 		logger.Error("Redis-repository: Store error.", rz.Err(err))
-		// r.metrics.StorageError()
+
 		return err
 	}
-	// r.metrics.Success()
 
 	return nil
 }
