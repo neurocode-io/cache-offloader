@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -20,13 +19,6 @@ var logLevel = map[string]zerolog.Level{
 
 type RedisConfig struct {
 	ConnectionString string
-	Password         string
-	Database         int
-	Size             int
-}
-
-type MemoryConfig struct {
-	Size float64
 }
 
 type ServerConfig struct {
@@ -39,6 +31,7 @@ type ServerConfig struct {
 
 type CacheConfig struct {
 	Strategy        string
+	Size            float64
 	StaleInSeconds  int
 	IgnorePaths     []string
 	ShouldHashQuery bool
@@ -48,7 +41,6 @@ type Config struct {
 	ServerConfig ServerConfig
 	CacheConfig  CacheConfig
 	RedisConfig  RedisConfig
-	MemoryConfig MemoryConfig
 }
 
 func New() Config {
@@ -62,6 +54,7 @@ func New() Config {
 
 	cacheConfig := CacheConfig{
 		Strategy:        getEnv("CACHE_STRATEGY", ""),
+		Size:            getEnvAsFloat("CACHE_SIZE_MB", "10"),
 		IgnorePaths:     getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
 		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
 		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
@@ -72,9 +65,6 @@ func New() Config {
 		return Config{
 			ServerConfig: serverConfig,
 			CacheConfig:  cacheConfig,
-			MemoryConfig: MemoryConfig{
-				Size: getEnvAsFloat("MEMORY_CACHE_SIZE_MB", "50"),
-			},
 		}
 	}
 
@@ -82,10 +72,7 @@ func New() Config {
 		ServerConfig: serverConfig,
 		CacheConfig:  cacheConfig,
 		RedisConfig: RedisConfig{
-			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
-			Password:         getEnv("REDIS_PASSWORD", ""),
-			Database:         getEnvAsInt("REDIS_DB", "0"),
-			Size:             getEnvAsInt("REDIS_CACHE_SIZE_MB", "10"),
+			ConnectionString: getEnv("REDIS_CONNECTION_STRING", ""),
 		},
 	}
 }

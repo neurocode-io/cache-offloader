@@ -18,7 +18,7 @@ import (
 func getInMemoryStorage(cfg config.Config) http.Cacher {
 	switch strings.ToLower(cfg.CacheConfig.Strategy) {
 	case "lru":
-		return storage.NewHashLRU(cfg.MemoryConfig.Size)
+		return storage.NewHashLRU(cfg.CacheConfig.Size)
 	case "lfu":
 		// cacher = storage.NewLFUCache(cfg.MemoryConfig.Size)
 		// opts.Cacher = storage.NewLFUCache(50)

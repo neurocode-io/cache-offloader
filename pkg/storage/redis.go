@@ -41,20 +41,21 @@ func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Resp
 	stale := pipe.Exists(ctx, r.aliveKey(requestID))
 	cachedResponse := pipe.Get(ctx, requestID)
 	_, err := pipe.Exec(ctx)
-	if err != nil {
-		logger.Error().Err(err).Msg("Redis-repository: LookUp error")
-
-		return nil, err
-	}
-
-	response.StaleValue = uint8(stale.Val())
 
 	if cachedResponse.Err() == redis.Nil {
 		logger.Debug().Msg("Redis-repository: key not found")
 
 		return nil, nil
 	}
+
+	if err != nil {
+		logger.Error().Err(err).Msg("Redis-repository: LookUp error")
+
+		return nil, err
+	}
+
 	err = json.Unmarshal([]byte(cachedResponse.Val()), response)
+	response.StaleValue = uint8(stale.Val())
 
 	return response, err
 }
