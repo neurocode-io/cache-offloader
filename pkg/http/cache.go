@@ -135,7 +135,7 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	if result == nil {
 		proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
-		logger.Debug().Msg("response from downstream cached")
+		logger.Debug().Msg("will cache response from downstream")
 		proxy.ServeHTTP(res, req)
 
 		return
