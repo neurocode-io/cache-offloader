@@ -38,11 +38,11 @@ type ServerConfig struct {
 }
 
 type CacheConfig struct {
-	Strategy             string
-	StaleWhileRevalidate int
-	IgnorePaths          []string
-	ShouldHashQuery      bool
-	HashQueryIgnore      map[string]bool
+	Strategy        string
+	StaleInSeconds  int
+	IgnorePaths     []string
+	ShouldHashQuery bool
+	HashQueryIgnore map[string]bool
 }
 type Config struct {
 	ServerConfig ServerConfig
@@ -61,11 +61,11 @@ func New() Config {
 	}
 
 	cacheConfig := CacheConfig{
-		Strategy:             getEnv("CACHE_STRATEGY", ""),
-		IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
-		StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-		ShouldHashQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
-		HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
+		Strategy:        getEnv("CACHE_STRATEGY", ""),
+		IgnorePaths:     getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
+		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
+		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+		HashQueryIgnore: hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 	}
 
 	if strings.ToLower(serverConfig.Storage) == "memory" {

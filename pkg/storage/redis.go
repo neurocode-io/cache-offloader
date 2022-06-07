@@ -10,42 +10,51 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
+//go:generate mockgen -source=./redis.go -destination=./redis-mock_test.go -package=storage
 type (
 	IRedis interface {
-		Get(ctx context.Context, key string) *redis.StringCmd
 		Ping(ctx context.Context) *redis.StatusCmd
-		Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
+		TxPipeline() redis.Pipeliner
 	}
 	RedisStorage struct {
 		db             IRedis
+		staleInSeconds int
 		commandTimeout time.Duration
 	}
 )
 
-func NewRedisStorage(db IRedis) RedisStorage {
-	return RedisStorage{db: db, commandTimeout: commandTimeout}
+func NewRedisStorage(db IRedis, seconds int) RedisStorage {
+	return RedisStorage{db: db, commandTimeout: commandTimeout, staleInSeconds: seconds}
+}
+
+func (r RedisStorage) aliveKey(key string) string {
+	return key + ":alive"
 }
 
 func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Response, error) {
 	logger := log.Ctx(ctx)
+	response := &model.Response{}
 	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
 	defer cancel()
-	result, err := r.db.Get(ctx, requestID).Result()
 
-	if err == redis.Nil {
-		logger.Debug().Msg("Redis-repository: key not found")
-
-		return nil, nil
-	}
-
+	pipe := r.db.TxPipeline()
+	stale := pipe.Exists(ctx, r.aliveKey(requestID))
+	cachedResponse := pipe.Get(ctx, requestID)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
-		logger.Error().Err(err).Msg("Redis-repository: LookUp error.")
+		logger.Error().Err(err).Msg("Redis-repository: LookUp error")
 
 		return nil, err
 	}
 
-	response := &model.Response{}
-	err = json.Unmarshal([]byte(result), response)
+	response.StaleValue = uint8(stale.Val())
+
+	if cachedResponse.Err() == redis.Nil {
+		logger.Debug().Msg("Redis-repository: key not found")
+
+		return nil, nil
+	}
+	err = json.Unmarshal([]byte(cachedResponse.Val()), response)
 
 	return response, err
 }
@@ -60,9 +69,12 @@ func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.R
 		return err
 	}
 
-	err = r.db.Set(ctx, requestID, storedResp, expirationTime).Err()
+	pipe := r.db.TxPipeline()
+	pipe.Set(ctx, requestID, storedResp, expirationTime)
+	pipe.Set(ctx, r.aliveKey(requestID), model.FreshValue, time.Second*time.Duration(r.staleInSeconds))
+	_, err = pipe.Exec(ctx)
 	if err != nil {
-		logger.Error().Err(err).Msg("Redis-repository: Store error.")
+		logger.Error().Err(err).Msg("Redis-repository: Store error")
 
 		return err
 	}

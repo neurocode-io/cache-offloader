@@ -143,6 +143,9 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	logger.Info().Msg("serving request from memory")
 	h.metricsCollector.CacheHit(req.Method, result.Status)
+
+	// TODO
+	// if result.IsStale() => async fetch from downstream
 	serveResponseFromMemory(res, result)
 }
 
@@ -181,7 +184,9 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 
 		response.Body = newBody
 
-		if err := h.cacher.Store(ctx, hashKey, &model.Response{Body: body, Header: header, Status: statusCode}); err != nil {
+		entry := model.Response{Body: body, Header: header, Status: statusCode}
+
+		if err := h.cacher.Store(ctx, hashKey, &entry); err != nil {
 			return err
 		}
 
