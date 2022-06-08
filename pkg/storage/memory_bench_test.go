@@ -20,10 +20,10 @@ func generateRandomBytes(b *testing.B) []byte {
 	return arr
 }
 
-func BenchmarkStoreLRU(b *testing.B) {
+func BenchmarkLRU(b *testing.B) {
 	maxMem := 10000.0
 	ctx := context.Background()
-	lru := NewHashLRU(maxMem)
+	lru := NewLRUCache(maxMem)
 	for i := 0; i < b.N; i++ {
 		err := lru.Store(ctx, fmt.Sprintf("key%d", i), &model.Response{
 			Status: 200,
@@ -32,15 +32,28 @@ func BenchmarkStoreLRU(b *testing.B) {
 
 		assert.Nil(b, err)
 	}
+	for i := 0; i < b.N; i++ {
+		_, err := lru.LookUp(ctx, fmt.Sprintf("key%d", i))
+
+		assert.Nil(b, err)
+	}
 }
 
-func BenchmarkStoreLRU2(b *testing.B) {
+func BenchmarkLFU(b *testing.B) {
 	maxMem := 10000.0
-	lru := NewLRUCache(maxMem)
+	ctx := context.Background()
+	lfu := NewLFUCache(maxMem)
 	for i := 0; i < b.N; i++ {
-		lru.Store(fmt.Sprintf("key%d", i), model.Response{
+		err := lfu.Store(ctx, fmt.Sprintf("key%d", i), &model.Response{
 			Status: 200,
 			Body:   generateRandomBytes(b),
 		})
+
+		assert.Nil(b, err)
+	}
+	for i := 0; i < b.N; i++ {
+		_, err := lfu.LookUp(ctx, fmt.Sprintf("key%d", i))
+
+		assert.Nil(b, err)
 	}
 }
