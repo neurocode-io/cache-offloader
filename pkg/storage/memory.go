@@ -17,12 +17,13 @@ type HashLRU struct {
 }
 
 func NewHashLRU(maxSizeMB float64) *HashLRU {
+	numOfCaches := 2.0
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
 	return &HashLRU{
-		maxSize:        maxSizeMB,
+		maxSize:        maxSizeMB / numOfCaches,
 		size:           0,
 		oldCache:       make(map[string]model.Response),
 		newCache:       make(map[string]model.Response),
@@ -93,10 +94,10 @@ func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, er
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case value := <-proc:
-		if value != nil {
-			return value, nil
+		if value == nil {
+			return nil, nil
 		}
 
-		return nil, nil
+		return value, nil
 	}
 }

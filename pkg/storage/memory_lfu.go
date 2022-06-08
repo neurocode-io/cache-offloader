@@ -103,8 +103,8 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 
 		if val, found := lfu.cache[key]; found {
 			lfu.update(val)
-
 			proc <- val.Value.(*LfuNode).value
+
 			return
 		}
 
@@ -115,11 +115,11 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case value := <-proc:
-		if value != nil {
-			return value, nil
+		if value == nil {
+			return nil, nil
 		}
 
-		return nil, nil
+		return value, nil
 	}
 }
 

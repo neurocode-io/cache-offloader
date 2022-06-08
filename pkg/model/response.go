@@ -9,7 +9,7 @@ type Response struct {
 	Header     map[string][]string
 	Body       []byte
 	Status     int
-	StaleValue uint8
+	StaleValue uint8 `json:"-"`
 }
 
 func (r Response) IsStale() bool {

@@ -62,7 +62,6 @@ func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Resp
 
 func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.Response) error {
 	logger := log.Ctx(ctx)
-
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
 		logger.Error().Err(err).Msg("Redis-repository: Store error; failed to json encode the http response")

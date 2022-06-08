@@ -91,8 +91,8 @@ func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
 }
 
 func errHandler(res http.ResponseWriter, req *http.Request, err error) {
-	log.Error().Err(err).Msg("Error occurred")
-	http.Error(res, "Something bad happened", http.StatusBadGateway)
+	log.Error().Err(err).Msg("downstream server is down")
+	http.Error(res, "service unavailable", http.StatusBadGateway)
 }
 
 func newCacheHandler(c Cacher, m MetricsCollector, url url.URL) handler {
@@ -151,6 +151,8 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
 	return func(response *http.Response) error {
+		// if this function returns an error, the proxy will return a 502 Bad Gateway error to the client
+		// please see the proxy.ModifyResponse documentation for more information
 		logger := log.Ctx(ctx)
 
 		logger.Debug().Msg("Got response from downstream service")
@@ -167,7 +169,9 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		if response.Header.Get("content-encoding") == "gzip" {
 			reader, err := gzip.NewReader(response.Body)
 			if err != nil {
-				return err
+				logger.Error().Err(err).Msg("Error occurred creating gzip reader")
+
+				return nil
 			}
 			body, readErr = io.ReadAll(reader)
 		} else {
@@ -175,7 +179,9 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		}
 
 		if readErr != nil {
-			return readErr
+			logger.Error().Err(readErr).Msg("Error occurred reading response body")
+
+			return nil
 		}
 
 		header := response.Header
@@ -187,7 +193,9 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		entry := model.Response{Body: body, Header: header, Status: statusCode}
 
 		if err := h.cacher.Store(ctx, hashKey, &entry); err != nil {
-			return err
+			logger.Error().Err(err).Msg("Error occurred storing response in memory")
+
+			return nil
 		}
 
 		return nil
