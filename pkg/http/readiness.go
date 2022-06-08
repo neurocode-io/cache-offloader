@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog/log"
 )
 
 type ReadinessChecker interface {
@@ -16,7 +16,7 @@ func readinessHandler(r ReadinessChecker) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		err := r.CheckConnection(req.Context())
 		if err != nil {
-			log.Warn("Redis unavailable")
+			log.Warn().Msg("Redis unavailable")
 			http.Error(res, "Redis unavailable", http.StatusServiceUnavailable)
 
 			return

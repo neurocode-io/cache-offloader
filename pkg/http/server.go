@@ -10,8 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/skerkour/rz"
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog/log"
 	"neurocode.io/cache-offloader/config"
 )
 
@@ -25,16 +24,15 @@ type ServerOpts struct {
 func RunServer(opts ServerOpts) {
 	downstreamURL, err := url.Parse(opts.Config.ServerConfig.DownstreamHost)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Could not parse downstream url: %s", downstreamURL))
+		log.Fatal().Msgf("Could not parse downstream url: %s", downstreamURL)
 	}
 
 	mux := h.NewServeMux()
-	mux.Handle("/", newStaleWhileRevalidateHandler(opts.Cacher, opts.MetricsCollector, *downstreamURL))
+	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, *downstreamURL))
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
 
 	for _, path := range opts.Config.CacheConfig.IgnorePaths {
-		log.Info(path)
 		mux.HandleFunc(path, forwardHandler(downstreamURL))
 	}
 
@@ -43,7 +41,7 @@ func RunServer(opts ServerOpts) {
 	server := &h.Server{Addr: fmt.Sprintf("0.0.0.0:%s", opts.Config.ServerConfig.Port), Handler: mux}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
-	log.Info(fmt.Sprintf("Starting server on port %s", opts.Config.ServerConfig.Port))
+	log.Info().Msgf("Starting server on port %s", opts.Config.ServerConfig.Port)
 
 	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
@@ -51,14 +49,14 @@ func RunServer(opts ServerOpts) {
 	go func() {
 		<-sig
 
-		log.Warn("received interrupt signal, shutting down...")
+		log.Warn().Msg("received interrupt signal, shutting down...")
 
 		shutdownCtx, cancel := context.WithTimeout(serverCtx, time.Duration(opts.Config.ServerConfig.GracePeriod)*time.Second)
 
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
-				log.Fatal("graceful shutdown timed out.. forcing exit.")
+				log.Fatal().Msg("graceful shutdown timed out.. forcing exit.")
 				cancel()
 			}
 		}()
@@ -66,7 +64,7 @@ func RunServer(opts ServerOpts) {
 		// Trigger graceful shutdown
 		err = server.Shutdown(shutdownCtx)
 		if err != nil {
-			log.Fatal("", rz.Stack(true), rz.Err(err))
+			log.Fatal().Stack().Err(err).Msg("error shutting down server")
 		}
 		serverStopCtx()
 	}()
@@ -74,7 +72,7 @@ func RunServer(opts ServerOpts) {
 	// Run the server
 	err = server.ListenAndServe()
 	if err != nil && err != h.ErrServerClosed {
-		log.Fatal("", rz.Stack(true), rz.Err(err))
+		log.Fatal().Stack().Err(err).Msg("error running server")
 	}
 
 	// Wait for server context to be stopped

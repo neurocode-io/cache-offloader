@@ -5,29 +5,29 @@ import (
 	"sync"
 	"time"
 
-	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type HashLRU struct {
-	cfg                config.CacheConfig
 	maxSize            float64
 	size               float64
 	oldCache, newCache map[string]model.Response
 	lock               sync.RWMutex
+	commandTimeout     time.Duration
 }
 
-func NewHashLRU(maxSizeMB float64, cfg config.CacheConfig) *HashLRU {
+func NewHashLRU(maxSizeMB float64) *HashLRU {
+	numOfCaches := 2.0
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
 	return &HashLRU{
-		maxSize:  maxSizeMB,
-		size:     0,
-		oldCache: make(map[string]model.Response),
-		newCache: make(map[string]model.Response),
-		cfg:      cfg,
+		maxSize:        maxSizeMB / numOfCaches,
+		size:           0,
+		oldCache:       make(map[string]model.Response),
+		newCache:       make(map[string]model.Response),
+		commandTimeout: commandTimeout,
 	}
 }
 
@@ -63,7 +63,7 @@ func (lru *HashLRU) Store(ctx context.Context, key string, value *model.Response
 }
 
 func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, lru.cfg.CommandTimeout*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, lru.commandTimeout)
 	defer cancel()
 
 	proc := make(chan *model.Response, 1)
@@ -94,10 +94,10 @@ func (lru *HashLRU) LookUp(ctx context.Context, key string) (*model.Response, er
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case value := <-proc:
-		if value != nil {
-			return value, nil
+		if value == nil {
+			return nil, nil
 		}
 
-		return nil, nil
+		return value, nil
 	}
 }

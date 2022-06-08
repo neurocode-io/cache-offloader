@@ -1,35 +1,24 @@
 package config
 
 import (
-	"fmt"
 	"strings"
-	"time"
 
-	"github.com/skerkour/rz"
+	"github.com/rs/zerolog"
 )
 
-var logLevel = map[string]rz.LogLevel{
-	"debug":    rz.DebugLevel,
-	"info":     rz.InfoLevel,
-	"warn":     rz.WarnLevel,
-	"error":    rz.ErrorLevel,
-	"fatal":    rz.FatalLevel,
-	"panic":    rz.PanicLevel,
-	"none":     rz.NoLevel,
-	"disabled": rz.Disabled,
+var logLevel = map[string]zerolog.Level{
+	"debug":    zerolog.DebugLevel,
+	"info":     zerolog.InfoLevel,
+	"warn":     zerolog.WarnLevel,
+	"error":    zerolog.ErrorLevel,
+	"fatal":    zerolog.FatalLevel,
+	"panic":    zerolog.PanicLevel,
+	"none":     zerolog.NoLevel,
+	"disabled": zerolog.Disabled,
 }
 
 type RedisConfig struct {
 	ConnectionString string
-	Password         string
-	Database         int
-	Size             int
-	Algorithm        string
-}
-
-type MemoryConfig struct {
-	Size      float64
-	Algorithm string
 }
 
 type ServerConfig struct {
@@ -37,66 +26,53 @@ type ServerConfig struct {
 	GracePeriod    int
 	DownstreamHost string
 	Storage        string // inMemory or redis
-	LogLevel       rz.LogLevel
+	LogLevel       zerolog.Level
 }
 
 type CacheConfig struct {
-	Strategy             string
-	StaleWhileRevalidate int
-	CommandTimeout       time.Duration
-	IgnorePaths          []string
-	HashShouldQuery      bool
-	HashQueryIgnore      map[string]bool
+	Strategy        string
+	Size            float64
+	StaleInSeconds  int
+	IgnorePaths     []string
+	ShouldHashQuery bool
+	HashQueryIgnore map[string]bool
 }
 type Config struct {
 	ServerConfig ServerConfig
 	CacheConfig  CacheConfig
 	RedisConfig  RedisConfig
-	MemoryConfig MemoryConfig
 }
 
 func New() Config {
 	serverConfig := ServerConfig{
 		Port:           getEnv("SERVER_PORT", "8000"),
-		GracePeriod:    getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "30"),
+		GracePeriod:    getEnvAsInt("SHUTDOWN_GRACE_PERIOD", "30"),
 		DownstreamHost: getEnv("DOWNSTREAM_HOST", ""),
 		LogLevel:       getEnvAsLogLevel("SERVER_LOG_LEVEL"),
 		Storage:        getEnv("SERVER_STORAGE", ""),
 	}
 
+	cacheConfig := CacheConfig{
+		Strategy:        getEnv("CACHE_STRATEGY", ""),
+		Size:            getEnvAsFloat("CACHE_SIZE_MB", "10"),
+		IgnorePaths:     getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
+		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
+		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+		HashQueryIgnore: hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
+	}
+
 	if strings.ToLower(serverConfig.Storage) == "memory" {
 		return Config{
 			ServerConfig: serverConfig,
-			CacheConfig: CacheConfig{
-				Strategy:             getEnv("CACHE_STRATEGY", ""),
-				IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
-				StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-				HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
-				HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
-			},
-			MemoryConfig: MemoryConfig{
-				Size:      getEnvAsFloat("MEMORY_CACHE_SIZE_MB", "50"),
-				Algorithm: strings.ToLower(getEnv("MEMORY_CACHE_ALGORITHM", "LRU")),
-			},
+			CacheConfig:  cacheConfig,
 		}
 	}
 
 	return Config{
 		ServerConfig: serverConfig,
-		CacheConfig: CacheConfig{
-			Strategy:             getEnv("CACHE_STRATEGY", ""),
-			IgnorePaths:          getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
-			StaleWhileRevalidate: getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-			HashShouldQuery:      getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
-			HashQueryIgnore:      hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
-			CommandTimeout:       time.Duration(getEnvAsInt("COMMAND_TIMEOUT_MS", "50")) * time.Millisecond,
-		},
+		CacheConfig:  cacheConfig,
 		RedisConfig: RedisConfig{
-			ConnectionString: fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", ""), getEnv("REDIS_PORT", "")),
-			Password:         getEnv("REDIS_PASSWORD", ""),
-			Database:         getEnvAsInt("REDIS_DB", "0"),
-			Size:             getEnvAsInt("REDIS_CACHE_SIZE_MB", "10"),
-			Algorithm:        strings.ToLower(getEnv("REDIS_CACHE_ALGORITHM", "LRU")),
+			ConnectionString: getEnv("REDIS_CONNECTION_STRING", ""),
 		},
 	}
 }

@@ -5,8 +5,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/skerkour/rz"
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -39,7 +38,7 @@ func NewPrometheusCollector() PrometheusCollector {
 
 	err := prometheus.Register(httpMetricsCounter)
 	if err != nil {
-		log.Warn("", rz.Stack(true), rz.Err(err))
+		log.Warn().Err(err).Stack().Msg("could not register prometheus httpMetricsCounter")
 	}
 
 	return PrometheusCollector{httpMetrics: httpMetricsCounter}

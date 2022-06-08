@@ -5,18 +5,14 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/skerkour/rz"
-	"github.com/skerkour/rz/log"
+	"github.com/rs/zerolog/log"
 )
 
 func forwardHandler(url *url.URL) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		logger := log.With(rz.Fields(
-			rz.String("path", req.URL.Path),
-			rz.String("method", req.Method),
-		))
+		logger := log.With().Str("path", req.URL.Path).Str("method", req.Method).Logger()
 		proxy := httputil.NewSingleHostReverseProxy(url)
-		logger.Info("will not cache this request")
+		logger.Info().Msg("will not cache this request")
 		proxy.ServeHTTP(res, req)
 	}
 }

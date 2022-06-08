@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/go-redis/redis/v8"
+	"github.com/rs/zerolog/log"
 	"neurocode.io/cache-offloader/config"
 )
 
@@ -10,11 +11,10 @@ type RedisClient struct {
 }
 
 func NewRedis(config config.RedisConfig) *RedisClient {
-	db := redis.NewClient(&redis.Options{
-		Addr:     config.ConnectionString,
-		Password: config.Password,
-		DB:       config.Database,
-	})
+	opt, err := redis.ParseURL(config.ConnectionString)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to parse redis connection string")
+	}
 
-	return &RedisClient{db}
+	return &RedisClient{redis.NewClient(opt)}
 }

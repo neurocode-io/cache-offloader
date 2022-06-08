@@ -6,13 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 func TestHashLRU(t *testing.T) {
 	oneHoundredBytes := 100.0 / 1024 / 1024
-	lru := NewHashLRU(oneHoundredBytes, config.CacheConfig{CommandTimeout: 10})
+	lru := NewHashLRU(oneHoundredBytes)
 	ctx := context.Background()
 
 	for i := 0; i < 100; i++ {
@@ -32,15 +31,14 @@ func TestHashLRU(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// func TestHashLRUCommandExeeeded(t *testing.T) {
-// 	oneMegaByte := 1000000.0 / 1024 / 1024
-// 	lru := NewHashLRU(oneMegaByte, config.CacheConfig{CommandTimeout: 0})
-// 	ctx := context.Background()
+func TestHashLRUCommandExeeeded(t *testing.T) {
+	oneMegaByte := 1000000.0 / 1024 / 1024
+	lru := NewHashLRU(oneMegaByte)
+	ctx := context.Background()
 
-// 	err := lru.Store(ctx, "1", &model.Response{
-// 		Status: 200,
-// 		Body:   []byte("body1"),
-// 	})
+	lru.commandTimeout = 0
+	resp, err := lru.LookUp(ctx, "1")
 
-// 	assert.EqualError(t, err, "context deadline exceeded")
-// }
+	assert.Nil(t, resp)
+	assert.EqualError(t, err, "context deadline exceeded")
+}
