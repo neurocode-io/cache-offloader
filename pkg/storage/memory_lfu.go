@@ -2,18 +2,21 @@ package storage
 
 import (
 	"container/list"
+	"context"
 	"sync"
+	"time"
 
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type LFUCache struct {
-	mtx        sync.Mutex
-	min        int
-	capacityMB float64
-	sizeMB     float64
-	lists      map[int]*FrequencyList
-	cache      map[string]*list.Element
+	mtx            sync.Mutex
+	min            int
+	capacityMB     float64
+	sizeMB         float64
+	commandTimeout time.Duration
+	lists          map[int]*FrequencyList
+	cache          map[string]*list.Element
 }
 
 type FrequencyList struct {
@@ -33,11 +36,12 @@ func NewLFUCache(maxSizeMB float64) *LFUCache {
 	}
 
 	return &LFUCache{
-		min:        1,
-		capacityMB: maxSizeMB,
-		sizeMB:     0,
-		lists:      make(map[int]*FrequencyList),
-		cache:      make(map[string]*list.Element),
+		min:            1,
+		capacityMB:     maxSizeMB,
+		sizeMB:         0,
+		commandTimeout: commandTimeout,
+		lists:          make(map[int]*FrequencyList),
+		cache:          make(map[string]*list.Element),
 	}
 }
 
@@ -87,17 +91,36 @@ func (lfu *LFUCache) Store(key string, value model.Response) {
 	}
 }
 
-func (lfu *LFUCache) LookUp(key string) *model.Response {
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
+func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, lfu.commandTimeout)
+	defer cancel()
 
-	if val, found := lfu.cache[key]; found {
-		lfu.update(val)
+	proc := make(chan *model.Response, 1)
 
-		return val.Value.(*LfuNode).value
+	go func() {
+		lfu.mtx.Lock()
+		defer lfu.mtx.Unlock()
+
+		if val, found := lfu.cache[key]; found {
+			lfu.update(val)
+
+			proc <- val.Value.(*LfuNode).value
+			return
+		}
+
+		proc <- nil
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case value := <-proc:
+		if value != nil {
+			return value, nil
+		}
+
+		return nil, nil
 	}
-
-	return nil
 }
 
 func (lfu *LFUCache) update(node *list.Element) {
