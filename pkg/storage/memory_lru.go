@@ -2,17 +2,20 @@ package storage
 
 import (
 	"container/list"
+	"context"
 	"sync"
+	"time"
 
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type LRUCache struct {
-	mtx        sync.Mutex
-	responses  *list.List
-	cache      map[string]*list.Element
-	capacityMB float64
-	sizeMB     float64
+	mtx            sync.Mutex
+	responses      *list.List
+	cache          map[string]*list.Element
+	capacityMB     float64
+	sizeMB         float64
+	commandTimeout time.Duration
 }
 
 type Node struct {
@@ -26,10 +29,11 @@ func NewLRUCache(maxSizeMB float64) *LRUCache {
 	}
 
 	return &LRUCache{
-		capacityMB: maxSizeMB,
-		sizeMB:     0.0,
-		responses:  list.New(),
-		cache:      make(map[string]*list.Element),
+		capacityMB:     maxSizeMB,
+		sizeMB:         0.0,
+		responses:      list.New(),
+		cache:          make(map[string]*list.Element),
+		commandTimeout: commandTimeout,
 	}
 }
 
@@ -64,17 +68,36 @@ func (lru *LRUCache) Store(key string, value model.Response) {
 	}
 }
 
-func (lru *LRUCache) LookUp(key string) *model.Response {
-	lru.mtx.Lock()
-	defer lru.mtx.Unlock()
+func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, error) {
+	ctx, cancel := context.WithTimeout(ctx, lru.commandTimeout)
+	defer cancel()
 
-	if value, found := lru.cache[key]; found {
-		lru.responses.MoveToFront(value)
+	proc := make(chan *model.Response, 1)
 
-		return value.Value.(*Node).value
+	go func() {
+		lru.mtx.Lock()
+		defer lru.mtx.Unlock()
+
+		if value, found := lru.cache[key]; found {
+			lru.responses.MoveToFront(value)
+			proc <- value.Value.(*Node).value
+
+			return
+		}
+
+		proc <- nil
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case value := <-proc:
+		if value != nil {
+			return value, nil
+		}
+
+		return nil, nil
 	}
-
-	return nil
 }
 
 func (lru *LRUCache) Size() float64 {

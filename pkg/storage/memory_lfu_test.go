@@ -152,13 +152,13 @@ func TestLFU_functionality2(t *testing.T) {
 	assert.Equal(t, 200, resp.Status)
 }
 
-func TestHashLFUCommandExeeeded(t *testing.T) {
+func TestLFUCacheCommandExeeeded(t *testing.T) {
 	oneMegaByte := 1000000.0 / 1024 / 1024
-	lru := NewLFUCache(oneMegaByte)
+	lfu := NewLFUCache(oneMegaByte)
 	ctx := context.Background()
 
-	lru.commandTimeout = 0
-	resp, err := lru.LookUp(ctx, "1")
+	lfu.commandTimeout = 0
+	resp, err := lfu.LookUp(ctx, "1")
 
 	assert.Nil(t, resp)
 	assert.EqualError(t, err, "context deadline exceeded")
