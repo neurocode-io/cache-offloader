@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type LFUCache struct {
-	mtx            sync.Mutex
+	mtx            sync.RWMutex
 	min            int
 	capacityMB     float64
 	sizeMB         float64
@@ -45,21 +46,23 @@ func NewLFUCache(maxSizeMB float64) *LFUCache {
 	}
 }
 
-func (lfu *LFUCache) Store(key string, value model.Response) {
+func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Response) error {
 	lfu.mtx.Lock()
 	defer lfu.mtx.Unlock()
 
-	bodySizeMB := lfu.getSize(value)
+	bodySizeMB := lfu.getSize(*value)
 
 	if bodySizeMB > lfu.capacityMB {
-		return
+		log.Ctx(ctx).Warn().Msg("The size of the body is bigger than the configured LRU cache maxSize. The body will not be stored.")
+
+		return nil
 	}
 
 	val, found := lfu.cache[key]
 
 	if found {
 		bodySizeMB -= lfu.getSize(*val.Value.(*LfuNode).value)
-		val.Value.(*LfuNode).value = &value
+		val.Value.(*LfuNode).value = value
 		lfu.update(val)
 	}
 
@@ -82,13 +85,15 @@ func (lfu *LFUCache) Store(key string, value model.Response) {
 	if !found {
 		node := &LfuNode{
 			key:   key,
-			value: &value,
+			value: value,
 		}
 
 		addedLfuNode := lfu.moveNode(node, 1)
 		lfu.cache[key] = addedLfuNode
 		lfu.min = 1
 	}
+
+	return nil
 }
 
 func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, error) {
@@ -98,8 +103,8 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 	proc := make(chan *model.Response, 1)
 
 	go func() {
-		lfu.mtx.Lock()
-		defer lfu.mtx.Unlock()
+		lfu.mtx.RLock()
+		defer lfu.mtx.RUnlock()
 
 		if val, found := lfu.cache[key]; found {
 			lfu.update(val)
@@ -153,20 +158,6 @@ func (lfu *LFUCache) moveNode(node *LfuNode, count int) *list.Element {
 	lfu.cache[returnedLfuNode.Value.(*LfuNode).key] = returnedLfuNode
 
 	return returnedLfuNode
-}
-
-func (lfu *LFUCache) Size() float64 {
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
-
-	return lfu.sizeMB
-}
-
-func (lfu *LFUCache) Capacity() float64 {
-	lfu.mtx.Lock()
-	defer lfu.mtx.Unlock()
-
-	return lfu.capacityMB
 }
 
 func (lfu *LFUCache) getSize(value model.Response) float64 {

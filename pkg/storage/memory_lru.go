@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type LRUCache struct {
-	mtx            sync.Mutex
+	mtx            sync.RWMutex
 	responses      *list.List
 	cache          map[string]*list.Element
 	capacityMB     float64
@@ -37,22 +38,24 @@ func NewLRUCache(maxSizeMB float64) *LRUCache {
 	}
 }
 
-func (lru *LRUCache) Store(key string, value model.Response) {
+func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Response) error {
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
-	bodySizeMB := lru.getSize(value)
+	bodySizeMB := lru.getSize(*value)
 
 	if bodySizeMB > lru.capacityMB {
-		return
+		log.Ctx(ctx).Warn().Msg("The size of the body is bigger than the configured LRU cache maxSize. The body will not be stored.")
+
+		return nil
 	}
 
 	if val, found := lru.cache[key]; found {
 		bodySizeMB -= lru.getSize(*val.Value.(*Node).value)
-		val.Value.(*Node).value = &value
+		val.Value.(*Node).value = value
 		lru.responses.MoveToFront(val)
 	} else {
-		element := lru.responses.PushFront(&Node{value: &value, key: key})
+		element := lru.responses.PushFront(&Node{value: value, key: key})
 		lru.cache[key] = element
 	}
 
@@ -66,6 +69,8 @@ func (lru *LRUCache) Store(key string, value model.Response) {
 
 		lru.sizeMB -= lru.getSize(*ejectedNode.Value.(*Node).value)
 	}
+
+	return nil
 }
 
 func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, error) {
@@ -75,8 +80,8 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 	proc := make(chan *model.Response, 1)
 
 	go func() {
-		lru.mtx.Lock()
-		defer lru.mtx.Unlock()
+		lru.mtx.RLock()
+		defer lru.mtx.RUnlock()
 
 		if value, found := lru.cache[key]; found {
 			lru.responses.MoveToFront(value)
@@ -98,20 +103,6 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 
 		return nil, nil
 	}
-}
-
-func (lru *LRUCache) Size() float64 {
-	lru.mtx.Lock()
-	defer lru.mtx.Unlock()
-
-	return lru.sizeMB
-}
-
-func (lru *LRUCache) Capacity() float64 {
-	lru.mtx.Lock()
-	defer lru.mtx.Unlock()
-
-	return lru.capacityMB
 }
 
 func (lru *LRUCache) getSize(value model.Response) float64 {
