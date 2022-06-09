@@ -32,10 +32,12 @@ func getRedisMemoryStorage(cfg config.Config) storage.RedisStorage {
 	r := client.NewRedis(cfg.RedisConfig)
 	switch strings.ToLower(cfg.CacheConfig.Strategy) {
 	case "lru":
-		// configure redis for LRU cache
+		r.ConfigureLRU(cfg.CacheConfig.Size)
+
 		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.StaleInSeconds)
 	case "lfu":
-		// configure redis for LFU cache
+		r.ConfigureLFU(cfg.CacheConfig.Size)
+
 		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.StaleInSeconds)
 	default:
 		log.Fatal().Msgf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy)
