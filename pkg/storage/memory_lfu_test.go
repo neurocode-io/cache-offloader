@@ -3,13 +3,14 @@ package storage
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
 func TestLFU_functionality(t *testing.T) {
-	cache := NewLFUCache(0.00001)
+	cache := NewLFUCache(0.00001, time.Second*time.Duration(5))
 	assert.NotNil(t, cache)
 
 	ctx := context.Background()
@@ -78,7 +79,7 @@ func TestLFU_functionality(t *testing.T) {
 }
 
 func TestLFU_functionality2(t *testing.T) {
-	cache := NewLFUCache(0.00001)
+	cache := NewLFUCache(0.00001, time.Second*time.Duration(5))
 	assert.NotNil(t, cache)
 
 	ctx := context.Background()
@@ -148,10 +149,9 @@ func TestLFU_functionality2(t *testing.T) {
 
 func TestLFUCacheCommandExeeeded(t *testing.T) {
 	oneMegaByte := 1000000.0 / 1024 / 1024
-	lfu := NewLFUCache(oneMegaByte)
+	lfu := NewLFUCache(oneMegaByte, 0)
 	ctx := context.Background()
 
-	lfu.commandTimeout = 0
 	resp, err := lfu.LookUp(ctx, "1")
 
 	assert.Nil(t, resp)

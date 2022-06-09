@@ -31,7 +31,7 @@ type LfuNode struct {
 	key    string
 }
 
-func NewLFUCache(maxSizeMB float64) *LFUCache {
+func NewLFUCache(maxSizeMB float64, lookupTimeout time.Duration) *LFUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -40,7 +40,7 @@ func NewLFUCache(maxSizeMB float64) *LFUCache {
 		min:            1,
 		capacityMB:     maxSizeMB,
 		sizeMB:         0,
-		commandTimeout: commandTimeout,
+		commandTimeout: lookupTimeout,
 		lists:          make(map[int]*FrequencyList),
 		cache:          make(map[string]*list.Element),
 	}

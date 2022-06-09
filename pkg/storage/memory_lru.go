@@ -24,7 +24,7 @@ type Node struct {
 	value *model.Response
 }
 
-func NewLRUCache(maxSizeMB float64) *LRUCache {
+func NewLRUCache(maxSizeMB float64, lookupTimeout time.Duration) *LRUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -34,7 +34,7 @@ func NewLRUCache(maxSizeMB float64) *LRUCache {
 		sizeMB:         0.0,
 		responses:      list.New(),
 		cache:          make(map[string]*list.Element),
-		commandTimeout: commandTimeout,
+		commandTimeout: lookupTimeout,
 	}
 }
 
