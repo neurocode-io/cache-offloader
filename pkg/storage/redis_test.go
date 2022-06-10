@@ -65,7 +65,7 @@ func TestRedisLookup(t *testing.T) {
 		{
 			name:          "lookup timeout",
 			redisClient:   r,
-			lookupTimeout: 3 * time.Millisecond,
+			lookupTimeout: 10 * time.Millisecond,
 			requestID:     "test",
 			want:          nil,
 			expErr:        errors.New("redis-repository: LookUp error: context deadline exceeded"),
