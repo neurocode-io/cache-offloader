@@ -18,11 +18,12 @@ import (
 func getInMemoryStorage(cfg config.Config) http.Cacher {
 	switch strings.ToLower(cfg.CacheConfig.Strategy) {
 	case "lru":
-		return storage.NewLRUCache(cfg.CacheConfig.Size, time.Second*time.Duration(5))
+		return storage.NewLRUCache(cfg.CacheConfig.Size)
 	case "lfu":
-		storage.NewLFUCache(cfg.CacheConfig.Size, time.Second*time.Duration(5))
+		storage.NewLFUCache(cfg.CacheConfig.Size)
 	default:
-		log.Fatal().Msgf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy)
+		log.Error().Msgf("Unknown cache strategy: %s", cfg.CacheConfig.Strategy)
+		log.Fatal().Msg("Supported cache strategies are LRU and LFU")
 	}
 
 	return nil
@@ -40,7 +41,8 @@ func getRedisMemoryStorage(cfg config.Config) storage.RedisStorage {
 
 		return storage.NewRedisStorage(r.Client, cfg.CacheConfig.StaleInSeconds)
 	default:
-		log.Fatal().Msgf("Unknown cache strategy: %s. Supported cache strategies are LRU and LFU", cfg.CacheConfig.Strategy)
+		log.Error().Msgf("Unknown cache strategy: %s", cfg.CacheConfig.Strategy)
+		log.Fatal().Msgf("Supported cache strategies are LRU and LFU")
 	}
 
 	return storage.RedisStorage{}
@@ -73,7 +75,8 @@ func main() {
 		opts.Cacher = cacher
 		opts.ReadinessChecker = cacher
 	default:
-		log.Fatal().Msgf("Unknown storage: %s. Supported storage options are memory and redis", cfg.ServerConfig.Storage)
+		log.Error().Msgf("Unknown storage: %s", cfg.ServerConfig.Storage)
+		log.Fatal().Msg("Supported storages are memory and redis")
 	}
 
 	http.RunServer(opts)

@@ -11,13 +11,13 @@ import (
 )
 
 type LFUCache struct {
-	mtx            sync.RWMutex
-	min            int
-	capacityMB     float64
-	sizeMB         float64
-	commandTimeout time.Duration
-	lists          map[int]*FrequencyList
-	cache          map[string]*list.Element
+	mtx           sync.RWMutex
+	min           int
+	capacityMB    float64
+	sizeMB        float64
+	lookupTimeout time.Duration
+	lists         map[int]*FrequencyList
+	cache         map[string]*list.Element
 }
 
 type FrequencyList struct {
@@ -31,18 +31,18 @@ type LfuNode struct {
 	key    string
 }
 
-func NewLFUCache(maxSizeMB float64, lookupTimeout time.Duration) *LFUCache {
+func NewLFUCache(maxSizeMB float64) *LFUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
 	return &LFUCache{
-		min:            1,
-		capacityMB:     maxSizeMB,
-		sizeMB:         0,
-		commandTimeout: lookupTimeout,
-		lists:          make(map[int]*FrequencyList),
-		cache:          make(map[string]*list.Element),
+		min:           1,
+		capacityMB:    maxSizeMB,
+		lookupTimeout: lookupTimeout,
+		sizeMB:        0,
+		lists:         make(map[int]*FrequencyList),
+		cache:         make(map[string]*list.Element),
 	}
 }
 
@@ -97,7 +97,7 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 }
 
 func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, lfu.commandTimeout)
+	ctx, cancel := context.WithTimeout(ctx, lfu.lookupTimeout)
 	defer cancel()
 
 	proc := make(chan *model.Response, 1)

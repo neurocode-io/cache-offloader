@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"neurocode.io/cache-offloader/pkg/model"
@@ -24,7 +23,7 @@ func generateRandomBytes(b *testing.B) []byte {
 func BenchmarkLRU(b *testing.B) {
 	maxMem := 10000.0
 	ctx := context.Background()
-	lru := NewLRUCache(maxMem, time.Second*time.Duration(5))
+	lru := NewLRUCache(maxMem)
 	for i := 0; i < b.N; i++ {
 		err := lru.Store(ctx, fmt.Sprintf("key%d", i), &model.Response{
 			Status: 200,
@@ -43,7 +42,7 @@ func BenchmarkLRU(b *testing.B) {
 func BenchmarkLFU(b *testing.B) {
 	maxMem := 10000.0
 	ctx := context.Background()
-	lfu := NewLFUCache(maxMem, time.Second*time.Duration(5))
+	lfu := NewLFUCache(maxMem)
 	for i := 0; i < b.N; i++ {
 		err := lfu.Store(ctx, fmt.Sprintf("key%d", i), &model.Response{
 			Status: 200,

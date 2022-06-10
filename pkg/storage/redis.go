@@ -19,12 +19,12 @@ type (
 	RedisStorage struct {
 		db             IRedis
 		staleInSeconds int
-		commandTimeout time.Duration
+		lookupTimeout  time.Duration
 	}
 )
 
-func NewRedisStorage(db IRedis, seconds int) RedisStorage {
-	return RedisStorage{db: db, commandTimeout: commandTimeout, staleInSeconds: seconds}
+func NewRedisStorage(db IRedis, staleInSeconds int) RedisStorage {
+	return RedisStorage{db: db, staleInSeconds: staleInSeconds, lookupTimeout: lookupTimeout}
 }
 
 func (r RedisStorage) aliveKey(key string) string {
@@ -34,7 +34,7 @@ func (r RedisStorage) aliveKey(key string) string {
 func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Response, error) {
 	logger := log.Ctx(ctx)
 	response := &model.Response{}
-	ctx, cancel := context.WithTimeout(ctx, r.commandTimeout)
+	ctx, cancel := context.WithTimeout(ctx, r.lookupTimeout)
 	defer cancel()
 
 	pipe := r.db.TxPipeline()

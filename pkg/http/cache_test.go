@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -262,6 +263,28 @@ func TestCacheHandler(t *testing.T) {
 
 			req:  mustRequest(t, "/status/200?q=1", ""),
 			want: http.StatusOK,
+		},
+		{
+			name: "cacheLookup error should still forward request to downstream",
+			handler: handler{
+				cacher: func() Cacher {
+					mock := NewMockCacher(ctrl)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+
+					return mock
+				}(),
+				metricsCollector: func() MetricsCollector {
+					mock := NewMockMetricsCollector(ctrl)
+					mock.EXPECT().CacheMiss("GET", proxied).Times(1)
+
+					return mock
+				}(),
+				downstreamURL: mustURL(t, downstreamServer.URL),
+			},
+
+			req:  mustRequest(t, "/status/200?q=1", ""),
+			want: proxied,
 		},
 	}
 

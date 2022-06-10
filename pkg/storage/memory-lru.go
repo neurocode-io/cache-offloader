@@ -11,12 +11,12 @@ import (
 )
 
 type LRUCache struct {
-	mtx            sync.RWMutex
-	responses      *list.List
-	cache          map[string]*list.Element
-	capacityMB     float64
-	sizeMB         float64
-	commandTimeout time.Duration
+	mtx           sync.RWMutex
+	responses     *list.List
+	cache         map[string]*list.Element
+	capacityMB    float64
+	sizeMB        float64
+	lookupTimeout time.Duration
 }
 
 type Node struct {
@@ -24,17 +24,17 @@ type Node struct {
 	value *model.Response
 }
 
-func NewLRUCache(maxSizeMB float64, lookupTimeout time.Duration) *LRUCache {
+func NewLRUCache(maxSizeMB float64) *LRUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
 
 	return &LRUCache{
-		capacityMB:     maxSizeMB,
-		sizeMB:         0.0,
-		responses:      list.New(),
-		cache:          make(map[string]*list.Element),
-		commandTimeout: lookupTimeout,
+		capacityMB:    maxSizeMB,
+		sizeMB:        0.0,
+		lookupTimeout: lookupTimeout,
+		responses:     list.New(),
+		cache:         make(map[string]*list.Element),
 	}
 }
 
@@ -74,7 +74,7 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 }
 
 func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, lru.commandTimeout)
+	ctx, cancel := context.WithTimeout(ctx, lru.lookupTimeout)
 	defer cancel()
 
 	proc := make(chan *model.Response, 1)
