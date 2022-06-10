@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  CI:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -25,7 +25,13 @@ jobs:
           REDIS_CONNECTION_STRING: ${{ secrets.REDIS_CONNECTION_STRING }}
         run: |
           go test -race -v -covermode=atomic --coverprofile=coverage.txt ./...
+          go test -json ./... > test-report.json
           go tool cover -func coverage.txt | grep total
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       # - name: Build image and push to Docker Hub and GitHub Container Registry
       #   uses: docker/build-push-action@v2
       #   with:
