@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	h "net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,18 +21,13 @@ type ServerOpts struct {
 }
 
 func RunServer(opts ServerOpts) {
-	downstreamURL, err := url.Parse(opts.Config.ServerConfig.DownstreamHost)
-	if err != nil {
-		log.Fatal().Msgf("Could not parse downstream url: %s", downstreamURL)
-	}
-
 	mux := h.NewServeMux()
-	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, *downstreamURL))
+	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, opts.Config.CacheConfig))
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
 
 	for _, path := range opts.Config.CacheConfig.IgnorePaths {
-		mux.HandleFunc(path, forwardHandler(downstreamURL))
+		mux.HandleFunc(path, forwardHandler(opts.Config.CacheConfig.DownstreamHost))
 	}
 
 	mux.HandleFunc("/probes/readiness", readinessHandler(opts.ReadinessChecker))
@@ -62,7 +56,7 @@ func RunServer(opts ServerOpts) {
 		}()
 
 		// Trigger graceful shutdown
-		err = server.Shutdown(shutdownCtx)
+		err := server.Shutdown(shutdownCtx)
 		if err != nil {
 			log.Fatal().Stack().Err(err).Msg("error shutting down server")
 		}
@@ -70,7 +64,7 @@ func RunServer(opts ServerOpts) {
 	}()
 
 	// Run the server
-	err = server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil && err != h.ErrServerClosed {
 		log.Fatal().Stack().Err(err).Msg("error running server")
 	}

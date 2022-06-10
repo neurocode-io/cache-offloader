@@ -8,7 +8,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-func TestLRU_functionality(t *testing.T) {
+func TestLRUFunctionality(t *testing.T) {
 	cache := NewLRUCache(0.00001)
 	assert.NotNil(t, cache)
 
@@ -89,7 +89,7 @@ func TestLRU_functionality(t *testing.T) {
 	assert.Equal(t, 500, resp.Status)
 }
 
-func TestLRU_functionality2(t *testing.T) {
+func TestLRUFunctionality2(t *testing.T) {
 	cache := NewLRUCache(0.00001)
 	assert.NotNil(t, cache)
 
