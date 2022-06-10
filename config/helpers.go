@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -96,4 +97,14 @@ func getEnvAsBool(key, defaultVal string) bool {
 	}
 
 	return value
+}
+
+func getEnvAsURL(key, defaultVal string) *url.URL {
+	valueStr := getEnv(key, defaultVal)
+	downstreamURL, err := url.Parse(valueStr)
+	if err != nil {
+		log.Fatal().Msgf("Could not parse downstream url: %s", downstreamURL)
+	}
+
+	return downstreamURL
 }

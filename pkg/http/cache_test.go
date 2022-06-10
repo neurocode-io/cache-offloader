@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
@@ -53,19 +54,20 @@ func mustRequest(t *testing.T, url, method string) *http.Request {
 	return req
 }
 
-func mustURL(t *testing.T, downstreamURL string) url.URL {
+func mustURL(t *testing.T, downstreamURL string) *url.URL {
 	u, err := url.Parse(downstreamURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return *u
+	return u
 }
 
 func TestCacheHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	proxied := http.StatusUseProxy
+	endpoint := "/status/200?q=1"
 	downstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(proxied)
 	}))
@@ -88,6 +90,9 @@ func TestCacheHandler(t *testing.T) {
 		{
 			name: "cache miss",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
@@ -101,15 +106,17 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", ""),
+			req:  mustRequest(t, endpoint, ""),
 			want: proxied,
 		},
 		{
 			name: "websockets will not be stored in cache",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(nil, nil).Times(0)
@@ -123,7 +130,6 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
 			req:  webSocketReq,
@@ -132,6 +138,9 @@ func TestCacheHandler(t *testing.T) {
 		{
 			name: "POST requests will not be stored in cache",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(nil, nil).Times(0)
@@ -145,15 +154,17 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", "POST"),
+			req:  mustRequest(t, endpoint, "POST"),
 			want: proxied,
 		},
 		{
 			name: "PUT requests will not be stored in cache",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(nil, nil).Times(0)
@@ -167,15 +178,17 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", "PUT"),
+			req:  mustRequest(t, endpoint, "PUT"),
 			want: proxied,
 		},
 		{
 			name: "PATCH requests will not be stored in cache",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(nil, nil).Times(0)
@@ -189,15 +202,17 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", "PATCH"),
+			req:  mustRequest(t, endpoint, "PATCH"),
 			want: proxied,
 		},
 		{
 			name: "DELETE requests will not be stored in cache",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(nil, nil).Times(0)
@@ -211,15 +226,17 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", "DELETE"),
+			req:  mustRequest(t, endpoint, "DELETE"),
 			want: proxied,
 		},
 		{
 			name: "statusCode > 500 from downstream will not be stored in cache",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServerNok.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
@@ -233,7 +250,6 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServerNok.URL),
 			},
 
 			req:  mustRequest(t, "/status/500?q=1", ""),
@@ -242,6 +258,9 @@ func TestCacheHandler(t *testing.T) {
 		{
 			name: "cache hit",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(&model.Response{
@@ -258,15 +277,17 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", ""),
+			req:  mustRequest(t, endpoint, ""),
 			want: http.StatusOK,
 		},
 		{
 			name: "cacheLookup error should still forward request to downstream",
 			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1)
@@ -280,10 +301,9 @@ func TestCacheHandler(t *testing.T) {
 
 					return mock
 				}(),
-				downstreamURL: mustURL(t, downstreamServer.URL),
 			},
 
-			req:  mustRequest(t, "/status/200?q=1", ""),
+			req:  mustRequest(t, endpoint, ""),
 			want: proxied,
 		},
 	}

@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -33,7 +32,7 @@ type MetricsCollector interface {
 type handler struct {
 	cacher           Cacher
 	metricsCollector MetricsCollector
-	downstreamURL    url.URL
+	cfg              config.CacheConfig
 }
 
 func handleGzipServeErr(err error) {
@@ -42,18 +41,16 @@ func handleGzipServeErr(err error) {
 	}
 }
 
-func getCacheKey(req *http.Request) string {
+func (h handler) getCacheKey(req *http.Request) string {
 	cacheKey := sha256.New()
 	cacheKey.Write([]byte(req.URL.Path))
 
-	cacheConfig := config.New().CacheConfig
-
-	if !cacheConfig.ShouldHashQuery {
+	if !h.cfg.ShouldHashQuery {
 		return fmt.Sprintf("% x", cacheKey.Sum(nil))
 	}
 
 	for key, values := range req.URL.Query() {
-		if _, ok := cacheConfig.HashQueryIgnore[key]; ok {
+		if _, ok := h.cfg.HashQueryIgnore[key]; ok {
 			continue
 		}
 		for _, value := range values {
@@ -95,16 +92,15 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "service unavailable", http.StatusBadGateway)
 }
 
-func newCacheHandler(c Cacher, m MetricsCollector, url url.URL) handler {
+func newCacheHandler(c Cacher, m MetricsCollector, cfg config.CacheConfig) handler {
 	return handler{
 		cacher:           c,
 		metricsCollector: m,
-		downstreamURL:    url,
 	}
 }
 
 func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	proxy := httputil.NewSingleHostReverseProxy(&h.downstreamURL)
+	proxy := httputil.NewSingleHostReverseProxy(h.cfg.DownstreamHost)
 	proxy.ErrorHandler = errHandler
 	logger := log.With().Str("path", req.URL.Path).Str("method", req.Method).Logger()
 	logCtx := logger.WithContext(req.Context())
@@ -117,14 +113,14 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !(strings.ToLower(req.Method) == "get") {
+	if strings.ToLower(req.Method) != "get" {
 		logger.Debug().Msg("will not cache non-GET request")
 		proxy.ServeHTTP(res, req)
 
 		return
 	}
 
-	hashKey := getCacheKey(req)
+	hashKey := h.getCacheKey(req)
 
 	result, err := h.cacher.LookUp(logCtx, hashKey)
 	if err != nil {
@@ -142,7 +138,6 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	logger.Info().Msg("serving request from memory")
 	h.metricsCollector.CacheHit(req.Method, result.Status)
 
-	// TODO
 	// if result.IsStale() => async fetch from downstream
 	serveResponseFromMemory(res, result)
 }

@@ -8,7 +8,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/model"
 )
 
-func TestLFU_functionality(t *testing.T) {
+func TestLFUFunctionality(t *testing.T) {
 	cache := NewLFUCache(0.00001)
 	assert.NotNil(t, cache)
 
@@ -77,7 +77,7 @@ func TestLFU_functionality(t *testing.T) {
 	assert.Equal(t, 500, resp.Status)
 }
 
-func TestLFU_functionality2(t *testing.T) {
+func TestLFUFunctionality2(t *testing.T) {
 	cache := NewLFUCache(0.00001)
 	assert.NotNil(t, cache)
 

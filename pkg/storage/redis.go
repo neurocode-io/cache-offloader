@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -49,9 +50,7 @@ func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Resp
 	}
 
 	if err != nil {
-		logger.Error().Err(err).Msg("Redis-repository: LookUp error")
-
-		return nil, err
+		return nil, fmt.Errorf("redis-repository: LookUp error: %w", err)
 	}
 
 	err = json.Unmarshal([]byte(cachedResponse.Val()), response)
@@ -61,12 +60,9 @@ func (r RedisStorage) LookUp(ctx context.Context, requestID string) (*model.Resp
 }
 
 func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.Response) error {
-	logger := log.Ctx(ctx)
 	storedResp, err := json.Marshal(resp)
 	if err != nil {
-		logger.Error().Err(err).Msg("Redis-repository: Store error; failed to json encode the http response")
-
-		return err
+		return fmt.Errorf("redis-repository: Store error: %w", err)
 	}
 
 	pipe := r.db.TxPipeline()
@@ -74,9 +70,7 @@ func (r RedisStorage) Store(ctx context.Context, requestID string, resp *model.R
 	pipe.Set(ctx, r.aliveKey(requestID), model.FreshValue, time.Second*time.Duration(r.staleInSeconds))
 	_, err = pipe.Exec(ctx)
 	if err != nil {
-		logger.Error().Err(err).Msg("Redis-repository: Store error")
-
-		return err
+		return fmt.Errorf("redis-repository: Store error: %w", err)
 	}
 
 	return nil

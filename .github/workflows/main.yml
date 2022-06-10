@@ -21,7 +21,11 @@ jobs:
       # - name: Run linter
       #   run: make lint
       - name: Run unit tests
-        run: make test
+        env:
+          REDIS_CONNECTION_STRING: ${{ secrets.REDIS_CONNECTION_STRING }}
+        run: |
+          go test -race -v -covermode=atomic --coverprofile=coverage.txt ./...
+          go tool cover -func coverage.txt | grep total
       # - name: Build image and push to Docker Hub and GitHub Container Registry
       #   uses: docker/build-push-action@v2
       #   with:

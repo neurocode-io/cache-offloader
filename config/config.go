@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -22,16 +23,16 @@ type RedisConfig struct {
 }
 
 type ServerConfig struct {
-	Port           string
-	GracePeriod    int
-	DownstreamHost string
-	Storage        string // inMemory or redis
-	LogLevel       zerolog.Level
+	Port        string
+	GracePeriod int
+	Storage     string // inMemory or redis
+	LogLevel    zerolog.Level
 }
 
 type CacheConfig struct {
 	Strategy        string
 	Size            float64
+	DownstreamHost  *url.URL
 	StaleInSeconds  int
 	IgnorePaths     []string
 	ShouldHashQuery bool
@@ -45,15 +46,15 @@ type Config struct {
 
 func New() Config {
 	serverConfig := ServerConfig{
-		Port:           getEnv("SERVER_PORT", "8000"),
-		GracePeriod:    getEnvAsInt("SHUTDOWN_GRACE_PERIOD", "30"),
-		DownstreamHost: getEnv("DOWNSTREAM_HOST", ""),
-		LogLevel:       getEnvAsLogLevel("SERVER_LOG_LEVEL"),
-		Storage:        getEnv("SERVER_STORAGE", ""),
+		Port:        getEnv("SERVER_PORT", "8000"),
+		GracePeriod: getEnvAsInt("SHUTDOWN_GRACE_PERIOD", "30"),
+		LogLevel:    getEnvAsLogLevel("SERVER_LOG_LEVEL"),
+		Storage:     getEnv("SERVER_STORAGE", ""),
 	}
 
 	cacheConfig := CacheConfig{
 		Strategy:        getEnv("CACHE_STRATEGY", ""),
+		DownstreamHost:  getEnvAsURL("DOWNSTREAM_HOST", ""),
 		Size:            getEnvAsFloat("CACHE_SIZE_MB", "10"),
 		IgnorePaths:     getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
 		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
