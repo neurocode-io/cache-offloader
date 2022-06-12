@@ -17,6 +17,7 @@ type (
 		Ping(ctx context.Context) *redis.StatusCmd
 		TxPipeline() redis.Pipeliner
 	}
+
 	RedisStorage struct {
 		db             IRedis
 		staleInSeconds int

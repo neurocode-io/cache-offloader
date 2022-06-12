@@ -32,7 +32,12 @@ func RunServer(opts ServerOpts) {
 
 	mux.HandleFunc("/probes/readiness", readinessHandler(opts.ReadinessChecker))
 
-	server := &h.Server{Addr: fmt.Sprintf("0.0.0.0:%s", opts.Config.ServerConfig.Port), Handler: mux}
+	server := &h.Server{
+		Addr:         fmt.Sprintf("0.0.0.0:%s", opts.Config.ServerConfig.Port),
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	log.Info().Msgf("Starting server on port %s", opts.Config.ServerConfig.Port)

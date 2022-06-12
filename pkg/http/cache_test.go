@@ -65,6 +65,7 @@ func mustURL(t *testing.T, downstreamURL string) *url.URL {
 
 func TestCacheHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	proxied := http.StatusUseProxy
 	endpoint := "/status/200?q=1"
