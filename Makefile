@@ -37,6 +37,9 @@ test:
 	go test -race -count=1 -v --coverprofile=coverage.txt ./...
 	go tool cover -func coverage.txt | grep total
 
+test-json:
+	go test -json ./... > test-report.json
+
 cov: test
 	go tool cover -html=coverage.txt
 

@@ -23,7 +23,7 @@ jobs:
       - name: Run unit tests
         run: |
           make test
-          go test -json ./... > test-report.json
+          make test-json
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
