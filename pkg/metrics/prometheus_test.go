@@ -11,6 +11,8 @@ func TestPrometheusMetrics(t *testing.T) {
 	t.Run("should return a prometheus registry", func(t *testing.T) {
 		collector := NewPrometheusCollector()
 		assert.NotNil(t, collector)
+
+		prometheus.Unregister(collector.httpMetrics)
 	})
 
 	t.Run("should use NA for invalid HTTP method", func(t *testing.T) {
@@ -21,5 +23,6 @@ func TestPrometheusMetrics(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.NotNil(t, metric)
+		prometheus.Unregister(collector.httpMetrics)
 	})
 }

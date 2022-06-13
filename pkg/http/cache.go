@@ -18,6 +18,7 @@ import (
 
 	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
+	"neurocode.io/cache-offloader/pkg/storage"
 )
 
 //go:generate mockgen -source=./cache.go -destination=./cache-mock_test.go -package=http
@@ -102,39 +103,41 @@ func newCacheHandler(c Cacher, m MetricsCollector, cfg config.CacheConfig) handl
 	}
 }
 
-func (h handler) asyncCacheRevalidate(hashKey string, res http.ResponseWriter, req *http.Request) {
-	ctx := context.Background()
-	newReq := req.WithContext(ctx)
+func (h handler) asyncCacheRevalidate(hashKey string, res http.ResponseWriter, req *http.Request) func() {
+	return func() {
+		ctx := context.Background()
+		newReq := req.WithContext(ctx)
 
-	netTransport := &http.Transport{
-		MaxIdleConnsPerHost: 1000,
-		DisableKeepAlives:   false,
-		IdleConnTimeout:     time.Hour * 1,
-		Dial: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-	}
-	client := &http.Client{
-		Timeout:   time.Second * 10,
-		Transport: netTransport,
-	}
+		netTransport := &http.Transport{
+			MaxIdleConnsPerHost: 1000,
+			DisableKeepAlives:   false,
+			IdleConnTimeout:     time.Hour * 1,
+			Dial: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+		}
+		client := &http.Client{
+			Timeout:   time.Second * 10,
+			Transport: netTransport,
+		}
 
-	newReq.URL.Host = h.cfg.DownstreamHost.Host
-	newReq.URL.Scheme = h.cfg.DownstreamHost.Scheme
-	newReq.RequestURI = ""
-	resp, err := client.Do(newReq)
-	if err != nil {
-		log.Ctx(ctx).Error().Err(err).Msg("Errored when sending request to the server")
+		newReq.URL.Host = h.cfg.DownstreamHost.Host
+		newReq.URL.Scheme = h.cfg.DownstreamHost.Scheme
+		newReq.RequestURI = ""
+		resp, err := client.Do(newReq)
+		if err != nil {
+			log.Ctx(ctx).Error().Err(err).Msg("Errored when sending request to the server")
 
-		return
-	}
-	err = h.cacheResponse(ctx, hashKey)(resp)
+			return
+		}
+		err = h.cacheResponse(ctx, hashKey)(resp)
 
-	if err != nil {
-		log.Print("Error occurred caching response")
+		if err != nil {
+			log.Print("Error occurred caching response")
+		}
 	}
 }
 
@@ -177,8 +180,10 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	logger.Info().Msg("serving request from memory")
 	h.metricsCollector.CacheHit(req.Method, result.Status)
 
+	sd := storage.NewDebouncer(100)
+
 	if result.IsStale() {
-		go h.asyncCacheRevalidate(hashKey, res, req)
+		go sd.Start(hashKey, h.asyncCacheRevalidate(hashKey, res, req))
 	}
 	serveResponseFromMemory(res, result)
 }
