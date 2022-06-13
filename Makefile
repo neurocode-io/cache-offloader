@@ -34,7 +34,7 @@ fresh: clean build
 
 
 test:
-	go test -race -v -covermode=atomic --coverprofile=coverage.txt ./...
+	go test -race -count=1 -v --coverprofile=coverage.txt ./...
 	go tool cover -func coverage.txt | grep total
 
 cov: test

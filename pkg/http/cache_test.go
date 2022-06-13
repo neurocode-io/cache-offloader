@@ -65,7 +65,7 @@ func mustURL(t *testing.T, downstreamURL string) *url.URL {
 
 func TestCacheHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	// defer ctrl.Finish()
 
 	proxied := http.StatusUseProxy
 	endpoint := "/status/200?q=1"
@@ -88,6 +88,30 @@ func TestCacheHandler(t *testing.T) {
 		req     *http.Request
 		want    int
 	}{
+		{
+			name: "cacheLookup error should still forward request to downstream and store response",
+			handler: handler{
+				cfg: config.CacheConfig{
+					DownstreamHost: mustURL(t, downstreamServer.URL),
+				},
+				cacher: func() Cacher {
+					mock := NewMockCacher(ctrl)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error"))
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any())
+
+					return mock
+				}(),
+				metricsCollector: func() MetricsCollector {
+					mock := NewMockMetricsCollector(ctrl)
+					mock.EXPECT().CacheMiss("GET", proxied)
+
+					return mock
+				}(),
+			},
+
+			req:  mustRequest(t, endpoint, ""),
+			want: proxied,
+		},
 		{
 			name: "cache miss",
 			handler: handler{
@@ -267,14 +291,15 @@ func TestCacheHandler(t *testing.T) {
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(&model.Response{
 						Status: http.StatusOK,
 						Body:   []byte("hello"),
-					}, nil).Times(1)
-					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					}, nil)
+					// mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any())
 
 					return mock
 				}(),
 				metricsCollector: func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheHit("GET", http.StatusOK).Times(1)
+					mock.EXPECT().CacheHit("GET", http.StatusOK)
+					// mock.EXPECT().CacheMiss("GET", proxied)
 
 					return mock
 				}(),
@@ -282,30 +307,6 @@ func TestCacheHandler(t *testing.T) {
 
 			req:  mustRequest(t, endpoint, ""),
 			want: http.StatusOK,
-		},
-		{
-			name: "cacheLookup error should still forward request to downstream",
-			handler: handler{
-				cfg: config.CacheConfig{
-					DownstreamHost: mustURL(t, downstreamServer.URL),
-				},
-				cacher: func() Cacher {
-					mock := NewMockCacher(ctrl)
-					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1)
-					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-
-					return mock
-				}(),
-				metricsCollector: func() MetricsCollector {
-					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss("GET", proxied).Times(1)
-
-					return mock
-				}(),
-			},
-
-			req:  mustRequest(t, endpoint, ""),
-			want: proxied,
 		},
 	}
 

@@ -26,7 +26,7 @@ func getEnv(key, defaultVal string) string {
 	}
 
 	if defaultVal == "" {
-		log.Fatal().Msgf("%s is not set", key)
+		log.Panic().Msgf("%s is not set", key)
 	}
 
 	return defaultVal
@@ -53,7 +53,7 @@ func getEnvAsLogLevel(key string) zerolog.Level {
 func getEnvAsSlice(key string) []string {
 	strSlice, _ := os.LookupEnv(key)
 	if strSlice == "" {
-		return nil
+		log.Panic().Msgf("%s is not set", key)
 	}
 
 	return strings.Split(strSlice, ",")
@@ -65,7 +65,7 @@ func getEnvAsInt(key, defaultVal string) int {
 	if err != nil {
 		value, err = strconv.Atoi(defaultVal)
 		if err != nil {
-			log.Fatal().Msgf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
+			log.Panic().Msgf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
 		}
 	}
 
@@ -79,7 +79,7 @@ func getEnvAsFloat(key, defaultVal string) float64 {
 	if err != nil {
 		value, err = strconv.ParseFloat(defaultVal, bitSize)
 		if err != nil {
-			log.Fatal().Msgf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
+			log.Panic().Msgf("Key: %v not an int. DefaultValue: %v also not an int", key, defaultVal)
 		}
 	}
 
@@ -92,7 +92,7 @@ func getEnvAsBool(key, defaultVal string) bool {
 	if err != nil {
 		value, err = strconv.ParseBool(defaultVal)
 		if err != nil {
-			log.Fatal().Msgf("Key: %v not a bool. DefaultValue: %v also not a bool", key, defaultVal)
+			log.Panic().Msgf("Key: %v not a bool. DefaultValue: %v also not a bool", key, defaultVal)
 		}
 	}
 
@@ -103,7 +103,7 @@ func getEnvAsURL(key, defaultVal string) *url.URL {
 	valueStr := getEnv(key, defaultVal)
 	downstreamURL, err := url.Parse(valueStr)
 	if err != nil {
-		log.Fatal().Msgf("Could not parse downstream url: %s", downstreamURL)
+		log.Panic().Msgf("Could not parse downstream url: %s", downstreamURL)
 	}
 
 	return downstreamURL

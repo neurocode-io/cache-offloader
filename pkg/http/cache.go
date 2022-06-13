@@ -189,11 +189,11 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		// please see the proxy.ModifyResponse documentation for more information
 		logger := log.Ctx(ctx)
 
-		logger.Debug().Msg("Got response from downstream service")
+		logger.Debug().Msg("got response from downstream service")
 		h.metricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
 
 		if response.StatusCode >= http.StatusInternalServerError {
-			logger.Warn().Msg("Won't cache 5XX downstream responses")
+			logger.Warn().Msg("won't cache 5XX downstream responses")
 
 			return nil
 		}
@@ -203,7 +203,7 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		if response.Header.Get("content-encoding") == "gzip" {
 			reader, err := gzip.NewReader(response.Body)
 			if err != nil {
-				logger.Error().Err(err).Msg("Error occurred creating gzip reader")
+				logger.Error().Err(err).Msg("error occurred creating gzip reader")
 
 				return nil
 			}
@@ -213,7 +213,7 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		}
 
 		if readErr != nil {
-			logger.Error().Err(readErr).Msg("Error occurred reading response body")
+			logger.Error().Err(readErr).Msg("error occurred reading response body")
 
 			return nil
 		}
@@ -227,7 +227,7 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 		entry := model.Response{Body: body, Header: header, Status: statusCode}
 
 		if err := h.cacher.Store(ctx, hashKey, &entry); err != nil {
-			logger.Error().Err(err).Msg("Error occurred storing response in memory")
+			logger.Error().Err(err).Msg("error occurred storing response in memory")
 
 			return nil
 		}
