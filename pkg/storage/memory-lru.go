@@ -94,9 +94,9 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 			node := value.Value.(*LRUNode)
 			response := node.value
 			if (time.Now().Unix() - node.timeStamp) >= lru.staleDuration {
-				response.StaleValue = 0
+				response.StaleValue = model.StaleValue
 			} else {
-				response.StaleValue = 1
+				response.StaleValue = model.FreshValue
 			}
 
 			proc <- response

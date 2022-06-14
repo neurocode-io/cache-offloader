@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"neurocode.io/cache-offloader/pkg/model"
@@ -193,14 +194,42 @@ func TestLRUCacheCommandExeeeded(t *testing.T) {
 
 func TestLRUStaleStatus(t *testing.T) {
 	oneMegaByte := 1000000.0 / 1024 / 1024
-	lru := NewLRUCache(oneMegaByte, 0)
+	lfu := NewLRUCache(oneMegaByte, 1)
 	ctx := context.Background()
 
-	lru.Store(ctx, "1", &model.Response{
+	lfu.Store(ctx, "1", &model.Response{
 		Status: 100,
 		Body:   []byte{1, 2, 3},
 	})
 
-	resp, _ := lru.LookUp(ctx, "1")
+	resp, _ := lfu.LookUp(ctx, "1")
+	assert.False(t, resp.IsStale())
+
+	time.Sleep(1 * time.Second)
+	resp, _ = lfu.LookUp(ctx, "1")
 	assert.True(t, resp.IsStale())
+}
+
+func TestLRUStaleStatus2(t *testing.T) {
+	oneMegaByte := 1000000.0 / 1024 / 1024
+	lfu := NewLRUCache(oneMegaByte, 1)
+	ctx := context.Background()
+
+	lfu.Store(ctx, "1", &model.Response{
+		Status: 100,
+		Body:   []byte{1, 2, 3},
+	})
+
+	time.Sleep(1 * time.Second)
+
+	resp, _ := lfu.LookUp(ctx, "1")
+	assert.True(t, resp.IsStale())
+
+	lfu.Store(ctx, "1", &model.Response{
+		Status: 100,
+		Body:   []byte{1, 2, 3},
+	})
+
+	resp, _ = lfu.LookUp(ctx, "1")
+	assert.False(t, resp.IsStale())
 }

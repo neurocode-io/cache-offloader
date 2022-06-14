@@ -116,10 +116,10 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 			lfu.update(val)
 			node := val.Value.(*LfuNode)
 			response := node.value
-			if (time.Now().Unix() - node.timeStamp) > lfu.staleDuration {
-				response.StaleValue = 0
+			if (time.Now().Unix() - node.timeStamp) >= lfu.staleDuration {
+				response.StaleValue = model.StaleValue
 			} else {
-				response.StaleValue = 1
+				response.StaleValue = model.FreshValue
 			}
 
 			proc <- response
