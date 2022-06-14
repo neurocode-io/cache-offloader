@@ -65,7 +65,7 @@ func mustURL(t *testing.T, downstreamURL string) *url.URL {
 
 func TestCacheHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	// defer ctrl.Finish()
+	defer ctrl.Finish()
 
 	proxied := http.StatusUseProxy
 	endpoint := "/status/200?q=1"
@@ -286,13 +286,18 @@ func TestCacheHandler(t *testing.T) {
 				cfg: config.CacheConfig{
 					DownstreamHost: mustURL(t, downstreamServer.URL),
 				},
+				worker: func() Worker {
+					mock := NewMockWorker(ctrl)
+					mock.EXPECT().Start(gomock.Any(), gomock.Any())
+
+					return mock
+				}(),
 				cacher: func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(&model.Response{
 						Status: http.StatusOK,
 						Body:   []byte("hello"),
 					}, nil)
-					// mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any())
 
 					return mock
 				}(),

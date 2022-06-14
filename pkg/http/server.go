@@ -16,13 +16,14 @@ import (
 type ServerOpts struct {
 	Config           config.Config
 	Cacher           Cacher
+	Worker           Worker
 	MetricsCollector MetricsCollector
 	ReadinessChecker ReadinessChecker
 }
 
 func RunServer(opts ServerOpts) {
 	mux := h.NewServeMux()
-	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, opts.Config.CacheConfig))
+	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, opts.Worker, opts.Config.CacheConfig))
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
 

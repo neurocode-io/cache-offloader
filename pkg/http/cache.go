@@ -18,25 +18,30 @@ import (
 
 	"neurocode.io/cache-offloader/config"
 	"neurocode.io/cache-offloader/pkg/model"
-	"neurocode.io/cache-offloader/pkg/storage"
 )
 
 //go:generate mockgen -source=./cache.go -destination=./cache-mock_test.go -package=http
-type Cacher interface {
-	LookUp(context.Context, string) (*model.Response, error)
-	Store(context.Context, string, *model.Response) error
-}
+type (
+	Worker interface {
+		Start(string, func())
+	}
+	Cacher interface {
+		LookUp(context.Context, string) (*model.Response, error)
+		Store(context.Context, string, *model.Response) error
+	}
 
-type MetricsCollector interface {
-	CacheHit(method string, statusCode int)
-	CacheMiss(method string, statusCode int)
-}
+	MetricsCollector interface {
+		CacheHit(method string, statusCode int)
+		CacheMiss(method string, statusCode int)
+	}
 
-type handler struct {
-	cacher           Cacher
-	metricsCollector MetricsCollector
-	cfg              config.CacheConfig
-}
+	handler struct {
+		cacher           Cacher
+		worker           Worker
+		metricsCollector MetricsCollector
+		cfg              config.CacheConfig
+	}
+)
 
 func handleGzipServeErr(err error) {
 	if err != nil {
@@ -95,15 +100,16 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 	http.Error(res, "service unavailable", http.StatusBadGateway)
 }
 
-func newCacheHandler(c Cacher, m MetricsCollector, cfg config.CacheConfig) handler {
+func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheConfig) handler {
 	return handler{
 		cacher:           c,
+		worker:           w,
 		metricsCollector: m,
 		cfg:              cfg,
 	}
 }
 
-func (h handler) asyncCacheRevalidate(hashKey string, res http.ResponseWriter, req *http.Request) func() {
+func (h handler) asyncCacheRevalidate(hashKey string, req *http.Request) func() {
 	return func() {
 		ctx := context.Background()
 		newReq := req.WithContext(ctx)
@@ -180,10 +186,8 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	logger.Info().Msg("serving request from memory")
 	h.metricsCollector.CacheHit(req.Method, result.Status)
 
-	sd := storage.NewDebouncer(100)
-
 	if result.IsStale() {
-		go sd.Start(hashKey, h.asyncCacheRevalidate(hashKey, res, req))
+		go h.worker.Start(hashKey, h.asyncCacheRevalidate(hashKey, req))
 	}
 	serveResponseFromMemory(res, result)
 }
