@@ -23,7 +23,7 @@ func generateRandomBytes(b *testing.B) []byte {
 func BenchmarkLRU(b *testing.B) {
 	maxMem := 10000.0
 	ctx := context.Background()
-	lru := NewLRUCache(maxMem)
+	lru := NewLRUCache(maxMem, 200)
 	for i := 0; i < b.N; i++ {
 		err := lru.Store(ctx, fmt.Sprintf("key%d", i), &model.Response{
 			Status: 200,
@@ -42,7 +42,7 @@ func BenchmarkLRU(b *testing.B) {
 func BenchmarkLFU(b *testing.B) {
 	maxMem := 10000.0
 	ctx := context.Background()
-	lfu := NewLFUCache(maxMem)
+	lfu := NewLFUCache(maxMem, 200)
 	for i := 0; i < b.N; i++ {
 		err := lfu.Store(ctx, fmt.Sprintf("key%d", i), &model.Response{
 			Status: 200,

@@ -9,7 +9,7 @@ import (
 )
 
 func TestLRUFunctionality(t *testing.T) {
-	cache := NewLRUCache(0.00001)
+	cache := NewLRUCache(0.00001, 50)
 	assert.NotNil(t, cache)
 
 	ctx := context.Background()
@@ -24,6 +24,7 @@ func TestLRUFunctionality(t *testing.T) {
 	resp, err := cache.LookUp(ctx, "1")
 	assert.Nil(t, err)
 	assert.Equal(t, 100, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "2", &model.Response{
 		Status: 200,
@@ -35,6 +36,7 @@ func TestLRUFunctionality(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "2")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "3", &model.Response{
 		Status: 300,
@@ -46,6 +48,7 @@ func TestLRUFunctionality(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "3")
 	assert.Nil(t, err)
 	assert.Equal(t, 300, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "1", &model.Response{
 		Status: 200,
@@ -64,6 +67,7 @@ func TestLRUFunctionality(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "4")
 	assert.Nil(t, err)
 	assert.Equal(t, 400, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	resp, err = cache.LookUp(ctx, "2")
 	assert.Nil(t, err)
@@ -87,10 +91,11 @@ func TestLRUFunctionality(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "5")
 	assert.Nil(t, err)
 	assert.Equal(t, 500, resp.Status)
+	assert.False(t, resp.IsStale())
 }
 
 func TestLRUFunctionality2(t *testing.T) {
-	cache := NewLRUCache(0.00001)
+	cache := NewLRUCache(0.00001, 50)
 	assert.NotNil(t, cache)
 
 	ctx := context.Background()
@@ -105,6 +110,7 @@ func TestLRUFunctionality2(t *testing.T) {
 	resp, err := cache.LookUp(ctx, "1")
 	assert.Nil(t, err)
 	assert.Equal(t, 100, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "2", &model.Response{
 		Status: 200,
@@ -116,6 +122,7 @@ func TestLRUFunctionality2(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "2")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "3", &model.Response{
 		Status: 300,
@@ -127,6 +134,7 @@ func TestLRUFunctionality2(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "3")
 	assert.Nil(t, err)
 	assert.Equal(t, 300, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "1", &model.Response{
 		Status: 200,
@@ -138,14 +146,17 @@ func TestLRUFunctionality2(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "1")
 	assert.Nil(t, err)
 	assert.Equal(t, 100, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	resp, err = cache.LookUp(ctx, "2")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	resp, err = cache.LookUp(ctx, "3")
 	assert.Nil(t, err)
 	assert.Equal(t, 300, resp.Status)
+	assert.False(t, resp.IsStale())
 
 	err = cache.Store(ctx, "1", &model.Response{
 		Status: 200,
@@ -165,11 +176,12 @@ func TestLRUFunctionality2(t *testing.T) {
 	resp, err = cache.LookUp(ctx, "1")
 	assert.Nil(t, err)
 	assert.Equal(t, 200, resp.Status)
+	assert.False(t, resp.IsStale())
 }
 
 func TestLRUCacheCommandExeeeded(t *testing.T) {
 	oneMegaByte := 1000000.0 / 1024 / 1024
-	lru := NewLRUCache(oneMegaByte)
+	lru := NewLRUCache(oneMegaByte, 50)
 	ctx := context.Background()
 
 	lru.lookupTimeout = 0
@@ -177,4 +189,18 @@ func TestLRUCacheCommandExeeeded(t *testing.T) {
 
 	assert.Nil(t, resp)
 	assert.EqualError(t, err, "context deadline exceeded")
+}
+
+func TestLRUStaleStatus(t *testing.T) {
+	oneMegaByte := 1000000.0 / 1024 / 1024
+	lru := NewLRUCache(oneMegaByte, 0)
+	ctx := context.Background()
+
+	lru.Store(ctx, "1", &model.Response{
+		Status: 100,
+		Body:   []byte{1, 2, 3},
+	})
+
+	resp, _ := lru.LookUp(ctx, "1")
+	assert.True(t, resp.IsStale())
 }

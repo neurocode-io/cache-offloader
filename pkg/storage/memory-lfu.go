@@ -18,6 +18,7 @@ type LFUCache struct {
 	lookupTimeout time.Duration
 	lists         map[int]*FrequencyList
 	cache         map[string]*list.Element
+	staleDuration int64
 }
 
 type FrequencyList struct {
@@ -26,12 +27,13 @@ type FrequencyList struct {
 }
 
 type LfuNode struct {
-	parent *FrequencyList
-	value  *model.Response
-	key    string
+	parent    *FrequencyList
+	value     *model.Response
+	timeStamp int64
+	key       string
 }
 
-func NewLFUCache(maxSizeMB float64) *LFUCache {
+func NewLFUCache(maxSizeMB float64, staleInSeconds int64) *LFUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -43,6 +45,7 @@ func NewLFUCache(maxSizeMB float64) *LFUCache {
 		sizeMB:        0,
 		lists:         make(map[int]*FrequencyList),
 		cache:         make(map[string]*list.Element),
+		staleDuration: staleInSeconds,
 	}
 }
 
@@ -62,7 +65,9 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 
 	if found {
 		bodySizeMB -= lfu.getSize(*val.Value.(*LfuNode).value)
-		val.Value.(*LfuNode).value = value
+		node := val.Value.(*LfuNode)
+		node.value = value
+		node.timeStamp = time.Now().Unix()
 		lfu.update(val)
 	}
 
@@ -84,8 +89,9 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 
 	if !found {
 		node := &LfuNode{
-			key:   key,
-			value: value,
+			key:       key,
+			value:     value,
+			timeStamp: time.Now().Unix(),
 		}
 
 		addedLfuNode := lfu.moveNode(node, 1)
@@ -108,7 +114,15 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 
 		if val, found := lfu.cache[key]; found {
 			lfu.update(val)
-			proc <- val.Value.(*LfuNode).value
+			node := val.Value.(*LfuNode)
+			response := node.value
+			if (time.Now().Unix() - node.timeStamp) > lfu.staleDuration {
+				response.StaleValue = 0
+			} else {
+				response.StaleValue = 1
+			}
+
+			proc <- response
 
 			return
 		}

@@ -17,14 +17,16 @@ type LRUCache struct {
 	capacityMB    float64
 	sizeMB        float64
 	lookupTimeout time.Duration
+	staleDuration int64
 }
 
-type Node struct {
-	key   string
-	value *model.Response
+type LRUNode struct {
+	key       string
+	value     *model.Response
+	timeStamp int64
 }
 
-func NewLRUCache(maxSizeMB float64) *LRUCache {
+func NewLRUCache(maxSizeMB float64, staleInSeconds int64) *LRUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -35,6 +37,7 @@ func NewLRUCache(maxSizeMB float64) *LRUCache {
 		lookupTimeout: lookupTimeout,
 		responses:     list.New(),
 		cache:         make(map[string]*list.Element),
+		staleDuration: staleInSeconds,
 	}
 }
 
@@ -51,11 +54,14 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 	}
 
 	if val, found := lru.cache[key]; found {
-		bodySizeMB -= lru.getSize(*val.Value.(*Node).value)
-		val.Value.(*Node).value = value
+		bodySizeMB -= lru.getSize(*val.Value.(*LRUNode).value)
+		node := val.Value.(*LRUNode)
+		node.value = value
+		node.timeStamp = time.Now().Unix()
+
 		lru.responses.MoveToFront(val)
 	} else {
-		element := lru.responses.PushFront(&Node{value: value, key: key})
+		element := lru.responses.PushFront(&LRUNode{value: value, key: key, timeStamp: time.Now().Unix()})
 		lru.cache[key] = element
 	}
 
@@ -64,10 +70,10 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 
 	for lru.sizeMB > lru.capacityMB {
 		ejectedNode = lru.responses.Back()
-		delete(lru.cache, ejectedNode.Value.(*Node).key)
+		delete(lru.cache, ejectedNode.Value.(*LRUNode).key)
 		lru.responses.Remove(ejectedNode)
 
-		lru.sizeMB -= lru.getSize(*ejectedNode.Value.(*Node).value)
+		lru.sizeMB -= lru.getSize(*ejectedNode.Value.(*LRUNode).value)
 	}
 
 	return nil
@@ -85,7 +91,15 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 
 		if value, found := lru.cache[key]; found {
 			lru.responses.MoveToFront(value)
-			proc <- value.Value.(*Node).value
+			node := value.Value.(*LRUNode)
+			response := node.value
+			if (time.Now().Unix() - node.timeStamp) >= lru.staleDuration {
+				response.StaleValue = 0
+			} else {
+				response.StaleValue = 1
+			}
+
+			proc <- response
 
 			return
 		}
