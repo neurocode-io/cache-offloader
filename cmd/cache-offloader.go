@@ -13,6 +13,7 @@ import (
 	"neurocode.io/cache-offloader/pkg/metrics"
 	"neurocode.io/cache-offloader/pkg/probes"
 	"neurocode.io/cache-offloader/pkg/storage"
+	"neurocode.io/cache-offloader/pkg/worker"
 )
 
 func getInMemoryStorage(cfg config.Config) http.Cacher {
@@ -61,8 +62,10 @@ func main() {
 	cfg := config.New()
 	setupLogging(cfg.ServerConfig.LogLevel)
 	m := metrics.NewPrometheusCollector()
+	maxInFlightRevalidationRequests := 1000
 	opts := http.ServerOpts{
 		Config:           cfg,
+		Worker:           worker.NewUpdateQueue(maxInFlightRevalidationRequests),
 		MetricsCollector: m,
 		ReadinessChecker: probes.NewReadinessChecker(),
 	}
