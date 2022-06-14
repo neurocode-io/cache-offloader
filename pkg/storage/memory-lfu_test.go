@@ -140,6 +140,10 @@ func TestLFUFunctionality2(t *testing.T) {
 	assert.Equal(t, 300, resp.Status)
 	assert.False(t, resp.IsStale())
 
+	cache.LookUp(ctx, "3")
+	cache.LookUp(ctx, "3")
+	cache.LookUp(ctx, "1")
+	// both entry 2 and entry 3 should be deleted from cache
 	err = cache.Store(ctx, "1", &model.Response{
 		Status: 200,
 		Body:   []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},

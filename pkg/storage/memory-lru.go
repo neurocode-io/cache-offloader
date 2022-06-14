@@ -45,7 +45,7 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 	lru.mtx.Lock()
 	defer lru.mtx.Unlock()
 
-	bodySizeMB := lru.getSize(*value)
+	bodySizeMB := getSize(*value)
 
 	if bodySizeMB > lru.capacityMB {
 		log.Ctx(ctx).Warn().Msg("The size of the body is bigger than the configured LRU cache maxSize. The body will not be stored.")
@@ -54,7 +54,7 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 	}
 
 	if val, found := lru.cache[key]; found {
-		bodySizeMB -= lru.getSize(*val.Value.(*LRUNode).value)
+		bodySizeMB -= getSize(*val.Value.(*LRUNode).value)
 		node := val.Value.(*LRUNode)
 		node.value = value
 		node.timeStamp = time.Now().Unix()
@@ -66,14 +66,9 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 	}
 
 	lru.sizeMB += bodySizeMB
-	var ejectedNode *list.Element
 
 	for lru.sizeMB > lru.capacityMB {
-		ejectedNode = lru.responses.Back()
-		delete(lru.cache, ejectedNode.Value.(*LRUNode).key)
-		lru.responses.Remove(ejectedNode)
-
-		lru.sizeMB -= lru.getSize(*ejectedNode.Value.(*LRUNode).value)
+		lru.ejectNode()
 	}
 
 	return nil
@@ -93,11 +88,7 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 			lru.responses.MoveToFront(value)
 			node := value.Value.(*LRUNode)
 			response := node.value
-			if (time.Now().Unix() - node.timeStamp) >= lru.staleDuration {
-				response.StaleValue = model.StaleValue
-			} else {
-				response.StaleValue = model.FreshValue
-			}
+			response.StaleValue = getStaleStatus(node.timeStamp, lru.staleDuration)
 
 			proc <- response
 
@@ -119,9 +110,10 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 	}
 }
 
-func (lru *LRUCache) getSize(value model.Response) float64 {
-	sizeBytes := len(value.Body)
-	sizeMB := float64(sizeBytes) / (1024 * 1024)
+func (lru *LRUCache) ejectNode() {
+	ejectedNode := lru.responses.Back()
+	delete(lru.cache, ejectedNode.Value.(*LRUNode).key)
+	lru.responses.Remove(ejectedNode)
 
-	return sizeMB
+	lru.sizeMB -= getSize(*ejectedNode.Value.(*LRUNode).value)
 }

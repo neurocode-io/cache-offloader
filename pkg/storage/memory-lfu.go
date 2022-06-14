@@ -3,6 +3,7 @@ package storage
 import (
 	"container/list"
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -12,18 +13,18 @@ import (
 
 type LFUCache struct {
 	mtx           sync.RWMutex
-	min           int
+	min           uint
 	capacityMB    float64
 	sizeMB        float64
 	lookupTimeout time.Duration
-	lists         map[int]*FrequencyList
+	lists         map[uint]*FrequencyList
 	cache         map[string]*list.Element
 	staleDuration int64
 }
 
 type FrequencyList struct {
 	lruCache *list.List
-	counter  int
+	counter  uint
 }
 
 type LfuNode struct {
@@ -43,7 +44,7 @@ func NewLFUCache(maxSizeMB float64, staleInSeconds int64) *LFUCache {
 		capacityMB:    maxSizeMB,
 		lookupTimeout: lookupTimeout,
 		sizeMB:        0,
-		lists:         make(map[int]*FrequencyList),
+		lists:         make(map[uint]*FrequencyList),
 		cache:         make(map[string]*list.Element),
 		staleDuration: staleInSeconds,
 	}
@@ -53,7 +54,7 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 	lfu.mtx.Lock()
 	defer lfu.mtx.Unlock()
 
-	bodySizeMB := lfu.getSize(*value)
+	bodySizeMB := getSize(*value)
 
 	if bodySizeMB > lfu.capacityMB {
 		log.Ctx(ctx).Warn().Msg("The size of the body is bigger than the configured LRU cache maxSize. The body will not be stored.")
@@ -64,7 +65,7 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 	val, found := lfu.cache[key]
 
 	if found {
-		bodySizeMB -= lfu.getSize(*val.Value.(*LfuNode).value)
+		bodySizeMB -= getSize(*val.Value.(*LfuNode).value)
 		node := val.Value.(*LfuNode)
 		node.value = value
 		node.timeStamp = time.Now().Unix()
@@ -74,17 +75,7 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 	lfu.sizeMB += bodySizeMB
 
 	for lfu.sizeMB > lfu.capacityMB {
-		freqList := lfu.lists[lfu.min].lruCache
-		ejectedNode := freqList.Back()
-		freqList.Remove(ejectedNode)
-
-		if freqList.Len() == 0 {
-			delete(lfu.lists, lfu.min)
-		}
-
-		delete(lfu.cache, ejectedNode.Value.(*LfuNode).key)
-
-		lfu.sizeMB -= lfu.getSize(*ejectedNode.Value.(*LfuNode).value)
+		lfu.ejectNode()
 	}
 
 	if !found {
@@ -116,11 +107,7 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 			lfu.update(val)
 			node := val.Value.(*LfuNode)
 			response := node.value
-			if (time.Now().Unix() - node.timeStamp) >= lfu.staleDuration {
-				response.StaleValue = model.StaleValue
-			} else {
-				response.StaleValue = model.FreshValue
-			}
+			response.StaleValue = getStaleStatus(node.timeStamp, lfu.staleDuration)
 
 			proc <- response
 
@@ -159,7 +146,7 @@ func (lfu *LFUCache) update(node *list.Element) {
 	lfu.moveNode(node.Value.(*LfuNode), count+1)
 }
 
-func (lfu *LFUCache) moveNode(node *LfuNode, count int) *list.Element {
+func (lfu *LFUCache) moveNode(node *LfuNode, count uint) *list.Element {
 	if _, found := lfu.lists[count]; !found {
 		lfu.lists[count] = &FrequencyList{
 			lruCache: list.New(),
@@ -174,9 +161,33 @@ func (lfu *LFUCache) moveNode(node *LfuNode, count int) *list.Element {
 	return returnedLfuNode
 }
 
-func (lfu *LFUCache) getSize(value model.Response) float64 {
-	sizeBytes := len(value.Body)
-	sizeMB := float64(sizeBytes) / (1024 * 1024)
+func (lfu *LFUCache) ejectNode() {
+	freqList := lfu.lists[lfu.min].lruCache
+	ejectedNode := freqList.Back()
+	freqList.Remove(ejectedNode)
 
-	return sizeMB
+	if freqList.Len() == 0 {
+		delete(lfu.lists, lfu.min)
+		lfu.min = lfu.findNextMin()
+	}
+
+	delete(lfu.cache, ejectedNode.Value.(*LfuNode).key)
+
+	lfu.sizeMB -= getSize(*ejectedNode.Value.(*LfuNode).value)
+}
+
+func (lfu *LFUCache) findNextMin() uint {
+	if _, found := lfu.lists[lfu.min+1]; found {
+		return lfu.min + 1
+	}
+
+	var newMin uint = math.MaxUint
+
+	for k := range lfu.lists {
+		if k < newMin {
+			newMin = k
+		}
+	}
+
+	return newMin
 }
