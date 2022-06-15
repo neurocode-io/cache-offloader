@@ -17,7 +17,7 @@ type LRUCache struct {
 	capacityMB    float64
 	sizeMB        float64
 	lookupTimeout time.Duration
-	staleDuration int64
+	staleDuration int
 }
 
 type LRUNode struct {
@@ -26,7 +26,7 @@ type LRUNode struct {
 	timeStamp int64
 }
 
-func NewLRUCache(maxSizeMB float64, staleInSeconds int64) *LRUCache {
+func NewLRUCache(maxSizeMB float64, staleInSeconds int) *LRUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -55,7 +55,10 @@ func (lru *LRUCache) Store(ctx context.Context, key string, value *model.Respons
 
 	if val, found := lru.cache[key]; found {
 		bodySizeMB -= getSize(*val.Value.(*LRUNode).value)
-		node := val.Value.(*LRUNode)
+		node, ok := val.Value.(*LRUNode)
+		if !ok {
+			log.Warn().Msg("The node is not a LRUNode")
+		}
 		node.value = value
 		node.timeStamp = time.Now().Unix()
 
@@ -86,7 +89,10 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 
 		if value, found := lru.cache[key]; found {
 			lru.responses.MoveToFront(value)
-			node := value.Value.(*LRUNode)
+			node, ok := value.Value.(*LRUNode)
+			if !ok {
+				log.Warn().Msg("The node is not a LRUNode")
+			}
 			response := node.value
 			response.StaleValue = getStaleStatus(node.timeStamp, lru.staleDuration)
 

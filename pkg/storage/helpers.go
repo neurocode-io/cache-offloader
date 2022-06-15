@@ -13,10 +13,10 @@ func getSize(value model.Response) float64 {
 	return sizeMB
 }
 
-func getStaleStatus(timeStamp int64, staleDuration int64) uint8 {
-	if (time.Now().Unix() - timeStamp) >= staleDuration {
+func getStaleStatus(timeStamp int64, staleDuration int) uint8 {
+	if (time.Now().Unix() - timeStamp) >= int64(staleDuration) {
 		return model.StaleValue
-	} else {
-		return model.FreshValue
 	}
+
+	return model.FreshValue
 }

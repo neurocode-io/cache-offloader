@@ -19,7 +19,7 @@ type LFUCache struct {
 	lookupTimeout time.Duration
 	lists         map[uint]*FrequencyList
 	cache         map[string]*list.Element
-	staleDuration int64
+	staleDuration int
 }
 
 type FrequencyList struct {
@@ -34,7 +34,7 @@ type LfuNode struct {
 	key       string
 }
 
-func NewLFUCache(maxSizeMB float64, staleInSeconds int64) *LFUCache {
+func NewLFUCache(maxSizeMB float64, staleInSeconds int) *LFUCache {
 	if maxSizeMB <= 0 {
 		maxSizeMB = 50.0
 	}
@@ -66,7 +66,10 @@ func (lfu *LFUCache) Store(ctx context.Context, key string, value *model.Respons
 
 	if found {
 		bodySizeMB -= getSize(*val.Value.(*LfuNode).value)
-		node := val.Value.(*LfuNode)
+		node, ok := val.Value.(*LfuNode)
+		if !ok {
+			log.Warn().Msg("The node is not a LfuNode")
+		}
 		node.value = value
 		node.timeStamp = time.Now().Unix()
 		lfu.update(val)
@@ -105,7 +108,10 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 
 		if val, found := lfu.cache[key]; found {
 			lfu.update(val)
-			node := val.Value.(*LfuNode)
+			node, ok := val.Value.(*LfuNode)
+			if !ok {
+				log.Warn().Msg("The node is not a LfuNode")
+			}
 			response := node.value
 			response.StaleValue = getStaleStatus(node.timeStamp, lfu.staleDuration)
 

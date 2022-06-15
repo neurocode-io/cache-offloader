@@ -19,9 +19,9 @@ import (
 func getInMemoryStorage(cfg config.Config) http.Cacher {
 	switch strings.ToLower(cfg.CacheConfig.Strategy) {
 	case "lru":
-		return storage.NewLRUCache(cfg.CacheConfig.Size, 5*60 /*5 minutes*/)
+		return storage.NewLRUCache(cfg.CacheConfig.Size, cfg.CacheConfig.StaleInSeconds)
 	case "lfu":
-		storage.NewLFUCache(cfg.CacheConfig.Size, 5*60 /*5 minutes*/)
+		storage.NewLFUCache(cfg.CacheConfig.Size, cfg.CacheConfig.StaleInSeconds)
 	default:
 		log.Error().Msgf("Unknown cache strategy: %s", cfg.CacheConfig.Strategy)
 		log.Fatal().Msg("Supported cache strategies are LRU and LFU")
