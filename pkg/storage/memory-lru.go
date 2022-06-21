@@ -84,8 +84,8 @@ func (lru *LRUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 	proc := make(chan *model.Response, 1)
 
 	go func() {
-		lru.mtx.RLock()
-		defer lru.mtx.RUnlock()
+		lru.mtx.Lock()
+		defer lru.mtx.Unlock()
 
 		if value, found := lru.cache[key]; found {
 			lru.responses.MoveToFront(value)

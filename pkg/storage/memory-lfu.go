@@ -103,8 +103,8 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 	proc := make(chan *model.Response, 1)
 
 	go func() {
-		lfu.mtx.RLock()
-		defer lfu.mtx.RUnlock()
+		lfu.mtx.Lock()
+		defer lfu.mtx.Unlock()
 
 		if val, found := lfu.cache[key]; found {
 			lfu.update(val)
@@ -136,6 +136,9 @@ func (lfu *LFUCache) LookUp(ctx context.Context, key string) (*model.Response, e
 }
 
 func (lfu *LFUCache) update(node *list.Element) {
+	if node == nil {
+		return
+	}
 	parent := node.Value.(*LfuNode).parent
 	count := parent.counter
 	freqList := parent.lruCache
