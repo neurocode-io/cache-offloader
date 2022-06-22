@@ -13,7 +13,7 @@
 
 # Using the service
 
-This service provides a stale while revalidate cache for your HTTP requests. If a request is made to a URL that is already in the cache, the cache will be used. The cache will also be used if the cache is stale. However, an asynchronous request will be made to the server to refresh the cache if the cache is stale.
+This service provides a stale while revalidate cache for your HTTP requests. If a request is made to a URL that is already in the cache, the cache will be used. The cache will also be used if the cache is stale. However, an asynchronous request will be made to the server to refresh the cache.
 
 Check out the `dev.env` file for configuration options.
 
@@ -22,11 +22,14 @@ Essentially you can choose between in-memory or redis persistence.
 Redis persistence is recommended when you have multiple processes running the service (or multiple pods).
 
 
-The environment variable CACHE_IGNORE_ENDPOINTS defines the endpoints that are allowed to passthrough without any checks from this service.
+The environment variable CACHE_IGNORE_ENDPOINTS defines the endpoints that are allowed to passthrough without any caching.
 
 You can also choose to incude query parameters in the cache key. `CACHE_SHOULD_HASH_QUERY` is a boolean flag that defines whether or not to hash the query parameters. 
 
-By `CACHE_HASH_QUERY_IGNORE` you can define which query parameters should be ignored when hashing the query.
+For example if you have a request to `/api/v1/users?id=1` and `CACHE_SHOULD_HASH_QUERY` is set to `true`, the cache key will be `/api/v1/users?id=1`. If `CACHE_SHOULD_HASH_QUERY` is set to `false`, the cache key will be `/api/v1/users`.
+
+You can also configure `CACHE_HASH_QUERY_IGNORE` to ignore certain query parameters from the cache key. For example if you have a request to `/api/v1/users?id=1&utm=1` and `CACHE_HASH_QUERY_IGNORE=utm` the cache key will be `/api/v1/users?id=1`.
+
 
 Another useful configuration option is `CACHE_STALE_WHILE_REVALIDATE_SEC`. This defines the time in seconds that the cache entry is considered stale and the cache is revalidated asynchronously.
 
