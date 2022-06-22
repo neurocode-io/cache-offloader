@@ -10,16 +10,6 @@
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=neurocode-io_cache-offloader&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=neurocode-io_cache-offloader)
 
 
-# Install
-
-pre go 1.15
-
-go get github.com/neurocode-io/cache-offloader@v0.1.1
-
-after go 1.15
-
-go install github.com/neurocode-io/cache-offloader@v0.1.1
-
 
 # Using the service
 
