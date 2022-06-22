@@ -13,9 +13,11 @@
 # Install
 
 pre go 1.15
+
 go get github.com/neurocode-io/cache-offloader@v0.1.1
 
 after go 1.15
+
 go install github.com/neurocode-io/cache-offloader@v0.1.1
 
 
