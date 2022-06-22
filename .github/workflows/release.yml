@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+builds:
+  - main: ./cmd/
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
