@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/neurocode-io/cache-offloader/config"
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 	"github.com/stretchr/testify/assert"
-	"neurocode.io/cache-offloader/config"
-	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type responseMatcher struct {

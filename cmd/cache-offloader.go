@@ -4,16 +4,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neurocode-io/cache-offloader/config"
+	"github.com/neurocode-io/cache-offloader/pkg/client"
+	"github.com/neurocode-io/cache-offloader/pkg/http"
+	"github.com/neurocode-io/cache-offloader/pkg/metrics"
+	"github.com/neurocode-io/cache-offloader/pkg/probes"
+	"github.com/neurocode-io/cache-offloader/pkg/storage"
+	"github.com/neurocode-io/cache-offloader/pkg/worker"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
-	"neurocode.io/cache-offloader/config"
-	"neurocode.io/cache-offloader/pkg/client"
-	"neurocode.io/cache-offloader/pkg/http"
-	"neurocode.io/cache-offloader/pkg/metrics"
-	"neurocode.io/cache-offloader/pkg/probes"
-	"neurocode.io/cache-offloader/pkg/storage"
-	"neurocode.io/cache-offloader/pkg/worker"
 )
 
 func getInMemoryStorage(cfg config.Config) http.Cacher {

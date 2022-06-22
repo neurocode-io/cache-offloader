@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/neurocode-io/cache-offloader/config"
 	"github.com/rs/zerolog/log"
-	"neurocode.io/cache-offloader/config"
 )
 
 type RedisClient struct {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 	"github.com/rs/zerolog/log"
-	"neurocode.io/cache-offloader/pkg/model"
 )
 
 //go:generate mockgen -source=./redis.go -destination=./redis-mock_test.go -package=storage

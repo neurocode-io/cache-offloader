@@ -9,8 +9,8 @@ import (
 
 	redis "github.com/go-redis/redis/v8"
 	"github.com/golang/mock/gomock"
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 	"github.com/stretchr/testify/assert"
-	"neurocode.io/cache-offloader/pkg/model"
 )
 
 func TestRedisLookup(t *testing.T) {

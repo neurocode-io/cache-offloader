@@ -1,4 +1,4 @@
-module neurocode.io/cache-offloader
+module github.com/neurocode-io/cache-offloader
 
 go 1.18
 

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 	"github.com/rs/zerolog/log"
-	"neurocode.io/cache-offloader/pkg/model"
 )
 
 type LFUCache struct {

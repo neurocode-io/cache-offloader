@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	model "neurocode.io/cache-offloader/pkg/model"
+	model "github.com/neurocode-io/cache-offloader/pkg/model"
 )
 
 // MockWorker is a mock of Worker interface.

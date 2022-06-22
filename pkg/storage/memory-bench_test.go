@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 	"github.com/stretchr/testify/assert"
-	"neurocode.io/cache-offloader/pkg/model"
 )
 
 func generateRandomBytes(b *testing.B) []byte {

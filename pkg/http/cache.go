@@ -16,8 +16,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"neurocode.io/cache-offloader/config"
-	"neurocode.io/cache-offloader/pkg/model"
+	"github.com/neurocode-io/cache-offloader/config"
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 )
 
 //go:generate mockgen -source=./cache.go -destination=./cache-mock_test.go -package=http

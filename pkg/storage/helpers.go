@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"neurocode.io/cache-offloader/pkg/model"
+	"github.com/neurocode-io/cache-offloader/pkg/model"
 )
 
 func getSize(value model.Response) float64 {
