@@ -26,12 +26,14 @@ func RunServer(opts ServerOpts) {
 	mux.Handle("/", newCacheHandler(opts.Cacher, opts.MetricsCollector, opts.Worker, opts.Config.CacheConfig))
 	mux.Handle("/metrics/prometheus", metricsHandler())
 	mux.HandleFunc("/probes/liveness", livenessHandler)
+	mux.HandleFunc("/probes/readiness", readinessHandler(opts.ReadinessChecker))
 
 	for _, path := range opts.Config.CacheConfig.IgnorePaths {
+		if path == "/metrics/prometheus" || path == "/probes/liveness" || path == "/probes/readiness" {
+			continue
+		}
 		mux.HandleFunc(path, forwardHandler(opts.Config.CacheConfig.DownstreamHost))
 	}
-
-	mux.HandleFunc("/probes/readiness", readinessHandler(opts.ReadinessChecker))
 
 	server := &h.Server{
 		Addr:         fmt.Sprintf("0.0.0.0:%s", opts.Config.ServerConfig.Port),

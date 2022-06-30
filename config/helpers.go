@@ -53,7 +53,7 @@ func getEnvAsLogLevel(key string) zerolog.Level {
 func getEnvAsSlice(key string) []string {
 	strSlice, _ := os.LookupEnv(key)
 	if strSlice == "" {
-		log.Panic().Msgf("%s is not set", key)
+		return []string{}
 	}
 
 	return strings.Split(strSlice, ",")

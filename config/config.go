@@ -58,7 +58,7 @@ func New() Config {
 		Size:            getEnvAsFloat("CACHE_SIZE_MB", "10"),
 		IgnorePaths:     getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
 		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
-		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", ""),
+		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", "true"),
 		HashQueryIgnore: hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 	}
 
