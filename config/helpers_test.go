@@ -70,9 +70,8 @@ func TestConfigHelpers(t *testing.T) {
 		t.Run("should panic if env value not set", func(t *testing.T) {
 			defer unsetEnv(t, "CACHE_HASH_QUERY_IGNORE")()
 
-			assert.Panics(t, func() {
-				getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")
-			})
+			got := getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")
+			assert.Equal(t, []string{}, got)
 		})
 	})
 	t.Run("getEnvAsInt", func(t *testing.T) {
