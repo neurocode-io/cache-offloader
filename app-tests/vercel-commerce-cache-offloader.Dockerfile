@@ -1,12 +1,14 @@
 FROM node:16-bullseye-slim AS builder
 
+ARG cache_offloader_version=0.1.5
+
 RUN apt update && apt install -y git wget \
   && git clone https://github.com/vercel/commerce.git \
   && cd commerce \
   && npm install --save-prod \
   && NODE_ENV="production" npm run build \
-  && wget https://github.com/neurocode-io/cache-offloader/releases/download/v0.1.4/cache-offloader_0.1.4_linux_amd64.tar.gz \
-  && tar -xvf cache-offloader_0.1.4_linux_amd64.tar.gz
+  && wget https://github.com/neurocode-io/cache-offloader/releases/download/v${cache_offloader_version}/cache-offloader_${cache_offloader_version}_linux_amd64.tar.gz \
+  && tar -xvf cache-offloader_${cache_offloader_version}_linux_amd64.tar.gz
 
 
 FROM node:16-bullseye-slim
@@ -38,4 +40,4 @@ RUN chown -R node:node /app
 USER node
 EXPOSE 8000
 
-ENTRYPOINT [ "./entrypoint.sh ]
+ENTRYPOINT [ "./entrypoint.sh" ]
