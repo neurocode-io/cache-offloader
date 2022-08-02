@@ -28,7 +28,7 @@ build:
 	env GOARCH=arm64 GOOS=darwin go build -o bin/${BIN}-mac -ldflags="-s -w" -v ./cmd/${BIN}.go
 
 run: fresh
-	./bin/${BIN}-mac
+	go run ./cmd/${BIN}.go
 
 fresh: clean build
 

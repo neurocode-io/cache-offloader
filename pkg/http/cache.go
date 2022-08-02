@@ -2,7 +2,6 @@ package http
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -43,12 +42,6 @@ type (
 	}
 )
 
-func handleGzipServeErr(err error) {
-	if err != nil {
-		log.Error().Err(err).Msg("Error occurred serving gzip response from memory")
-	}
-}
-
 func (h handler) getCacheKey(req *http.Request) string {
 	cacheKey := sha256.New()
 	cacheKey.Write([]byte(req.URL.Path))
@@ -75,21 +68,8 @@ func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
 	}
 
 	res.WriteHeader(result.Status)
-
-	if res.Header().Get("content-encoding") == "gzip" {
-		var b bytes.Buffer
-		gz := gzip.NewWriter(&b)
-		_, err := gz.Write(result.Body)
-		handleGzipServeErr(err)
-		err = gz.Close()
-		handleGzipServeErr(err)
-		_, err = res.Write(b.Bytes())
-		handleGzipServeErr(err)
-
-		return
-	}
-
 	_, err := res.Write(result.Body)
+
 	if err != nil {
 		log.Error().Err(err).Msg("Error occurred serving response from memory")
 	}
@@ -134,15 +114,17 @@ func (h handler) asyncCacheRevalidate(hashKey string, req *http.Request) func() 
 		newReq.URL.Scheme = h.cfg.DownstreamHost.Scheme
 		newReq.RequestURI = ""
 		resp, err := client.Do(newReq)
+		if resp != nil {
+			defer resp.Body.Close()
+		}
 		if err != nil {
 			log.Ctx(ctx).Error().Err(err).Msg("Errored when sending request to the server")
 
 			return
 		}
-		err = h.cacheResponse(ctx, hashKey)(resp)
 
-		if err != nil {
-			log.Print("Error occurred caching response")
+		if err := h.cacheResponse(ctx, hashKey)(resp); err != nil {
+			log.Ctx(ctx).Error().Err(err).Msg("Errored when caching response")
 		}
 	}
 }
@@ -207,19 +189,7 @@ func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.R
 			return nil
 		}
 
-		var body []byte
-		var readErr error
-		if response.Header.Get("content-encoding") == "gzip" {
-			reader, err := gzip.NewReader(response.Body)
-			if err != nil {
-				logger.Error().Err(err).Msg("error occurred creating gzip reader")
-
-				return nil
-			}
-			body, readErr = io.ReadAll(reader)
-		} else {
-			body, readErr = io.ReadAll(response.Body)
-		}
+		body, readErr := io.ReadAll(response.Body)
 
 		if readErr != nil {
 			logger.Error().Err(readErr).Msg("error occurred reading response body")
