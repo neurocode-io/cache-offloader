@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Setup Go
-        uses: actions/setup-go@v2
+      - uses: actions/setup-go@v5
         with:
-          go-version: 1.18
+          go-version-file: "go.mod"
+          cache-dependency-path: "go.sum"
       - name: Run build binary
         run: make build
       - name: Setup make

@@ -32,6 +32,8 @@ run: fresh
 
 fresh: clean build
 
+deps:
+	go mod tidy -v
 
 test:
 	go test -race -count=1 -v --coverprofile=coverage.txt ./...

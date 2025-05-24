@@ -1,6 +1,6 @@
 module github.com/neurocode-io/cache-offloader
 
-go 1.18
+go 1.24.2
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
