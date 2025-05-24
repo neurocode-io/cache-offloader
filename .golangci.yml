@@ -1,94 +1,197 @@
+version: "2"
 run:
-  concurrency: 4
-  timeout: 5m
-  issues-exit-code: 1
-  tests: true
-  modules-download-mode: readonly
-  allow-parallel-runners: true
-
-output:
-  # colored-line-number|line-number|json|tab|checkstyle|code-climate, default is "colored-line-number"
-  format: colored-line-number
-  print-issued-lines: false
-  sort-results: true
-
+  tests: false
 linters:
-  disable-all: true
+  default: none
   enable:
+    - asasalint
+    - asciicheck
+    - bidichk
     - bodyclose
-    - deadcode
-    - depguard
+    - canonicalheader
+    - contextcheck
+    - copyloopvar
+    - cyclop
+    - decorder
     - dogsled
-    - dupl
-    - lll
+    - dupword
+    - durationcheck
+    - err113
     - errcheck
+    - errname
+    - errorlint
     - exhaustive
+    - fatcontext
+    - forbidigo
     - funlen
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecknoglobals
     - gochecknoinits
+    - gochecksumtype
+    - gocognit
     - goconst
+    - gocritic
     - gocyclo
-    - gofmt
-    - goimports
-    - revive
-    - gomnd
+    - godot
+    - goheader
+    - gomoddirectives
+    - gomodguard
     - goprintffuncname
     - gosec
-    - gosimple
+    - gosmopolitan
     - govet
+    - grouper
+    - importas
+    - inamedparam
     - ineffassign
+    - interfacebloat
+    - intrange
+    - loggercheck
+    - maintidx
+    - makezero
+    - mirror
     - misspell
+    - mnd
+    - musttag
     - nakedret
+    - nestif
+    - nilerr
+    - nilnil
     - noctx
     - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - revive
     - rowserrcheck
-    - prealloc
-    - exportloopref
+    - sloglint
+    - spancheck
+    - sqlclosecheck
     - staticcheck
-    - structcheck
-    - stylecheck
-    - typecheck
+    - tagliatelle
+    - testableexamples
+    - testifylint
+    - thelper
+    - tparallel
     - unconvert
     - unparam
     - unused
-    - varcheck
-    - nlreturn
+    - usestdlibvars
+    - usetesting
+    - wastedassign
     - whitespace
-    - gocritic
-    - exportloopref
-    - gocognit
+    - wrapcheck
+    - zerologlint
+  settings:
+    cyclop:
+      max-complexity: 30
+      package-average: 10
+    errcheck:
+      check-type-assertions: true
+    funlen:
+      lines: 100
+      ignore-comments: true
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
+    godot:
+      capital: true
+    gosec:
+      config:
+        G101:
+          pattern: (?i)passwd|pass|password|pwd|secret|token|pw|apiKey|bearer|credential
+        global:
+          "#nosec": gosec-ignore
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+    inamedparam:
+      skip-single-param: true
+    mnd:
+      ignored-functions:
+        - args.Error
+        - flag.Arg
+        - flag.Duration.*
+        - flag.Float.*
+        - flag.Int.*
+        - flag.Uint.*
+        - os.Chmod
+        - os.Mkdir.*
+        - os.OpenFile
+        - os.WriteFile
+        - prometheus.ExponentialBuckets.*
+        - prometheus.LinearBuckets
+    nlreturn:
+      block-size: 3
+    nolintlint:
+      require-specific: true
+    perfsprint:
+      strconcat: false
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+    rowserrcheck:
+      packages:
+        - github.com/jmoiron/sqlx
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+    testpackage:
+      skip-regexp: _internal_test\.go
+    varnamelen:
+      max-distance: 6
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - unparam
+        text: result \d+ \([^)]+\) is always
+    paths:
+      - \.pb\.go$
+      - \.connect\.go$
+      - \.sql\.go$
+      - _templ\.go$
+      - migrate\.go
+      - ^.git
+      - ^api
+      - ^proto
+      - ^test
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
     - gofumpt
-    - godot
-
-  fast: false
-
-issues:
-  max-same-issues: 50
-  max-issues-per-linter: 100
-
-linters-settings:
-  funlen:
-    lines: 120
-    # stmtLimit: 100
-  lll:
-    line-length: 160
-  gomnd:
-    settings:
-      mnd:
-        checks: argument,case,condition,return
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  gocognit:
-    # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 15
-  gocyclo:
-    # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 10
-  godot:
-    # comments to be checked: `declarations`, `toplevel`, or `all`
-    scope: declarations
-    # check that each sentence starts with a capital letter
-    capital: true
-  govet:
-    # report about shadowed variables
-    check-shadowing: true
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - \.pb\.go$
+      - \.connect\.go$
+      - \.sql\.go$
+      - _templ\.go$
+      - migrate\.go
+      - ^.git
+      - ^api
+      - ^proto
+      - ^test
+      - third_party$
+      - builtin$
+      - examples$
