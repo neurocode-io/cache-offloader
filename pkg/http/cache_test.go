@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -320,6 +321,180 @@ func TestCacheHandler(t *testing.T) {
 			want := httptest.NewRecorder()
 			tt.handler.ServeHTTP(want, tt.req)
 			assert.Equal(t, tt.want, want.Code)
+		})
+	}
+}
+
+func TestGetCacheKey(t *testing.T) {
+	tests := []struct {
+		name            string
+		path            string
+		method          string
+		query           string
+		headers         map[string]string
+		shouldHashQuery bool
+		ignoreParams    []string
+		hashHeaders     []string
+		ignoreHeaders   []string
+		want            string
+	}{
+		{
+			name:            "simple path without query",
+			path:            "/api/users",
+			method:          "GET",
+			query:           "",
+			shouldHashQuery: true,
+			want:            "GET:/api/users",
+		},
+		{
+			name:            "path with query parameters",
+			path:            "/api/users",
+			method:          "GET",
+			query:           "name=john&age=30",
+			shouldHashQuery: true,
+			want:            "GET:/api/users&age=30&name=john",
+		},
+		{
+			name:            "query parameters in different order",
+			path:            "/api/users",
+			method:          "GET",
+			query:           "age=30&name=john",
+			shouldHashQuery: true,
+			want:            "GET:/api/users&age=30&name=john",
+		},
+		{
+			name:            "multiple values for same parameter",
+			path:            "/api/users",
+			method:          "GET",
+			query:           "role=admin&role=user",
+			shouldHashQuery: true,
+			want:            "GET:/api/users&role=admin&role=user",
+		},
+		{
+			name:            "different HTTP method",
+			path:            "/api/users",
+			method:          "POST",
+			query:           "name=john",
+			shouldHashQuery: true,
+			want:            "POST:/api/users&name=john",
+		},
+		{
+			name:            "query parameters disabled",
+			path:            "/api/users",
+			method:          "GET",
+			query:           "name=john&age=30",
+			shouldHashQuery: false,
+			want:            "GET:/api/users",
+		},
+		{
+			name:            "ignored query parameters",
+			path:            "/api/users",
+			method:          "GET",
+			query:           "name=john&age=30&timestamp=123",
+			shouldHashQuery: true,
+			ignoreParams:    []string{"timestamp"},
+			want:            "GET:/api/users&age=30&name=john",
+		},
+		{
+			name:            "special characters in path and query",
+			path:            "/api/users/123/profile",
+			method:          "GET",
+			query:           "filter=active&sort=name",
+			shouldHashQuery: true,
+			want:            "GET:/api/users/123/profile&filter=active&sort=name",
+		},
+		{
+			name:   "with authorization header",
+			path:   "/api/users",
+			method: "GET",
+			query:  "name=john",
+			headers: map[string]string{
+				"Authorization": "Bearer token123",
+			},
+			shouldHashQuery: true,
+			hashHeaders:     []string{"Authorization"},
+			want:            "GET:/api/users&name=john|Authorization=Bearer token123",
+		},
+		{
+			name:   "multiple headers",
+			path:   "/api/users",
+			method: "GET",
+			headers: map[string]string{
+				"Authorization": "Bearer token123",
+				"X-User-ID":     "user456",
+				"Accept":        "application/json",
+			},
+			shouldHashQuery: true,
+			hashHeaders:     []string{"Authorization", "X-User-ID", "Accept"},
+			want:            "GET:/api/users|Accept=application/json|Authorization=Bearer token123|X-User-ID=user456",
+		},
+		{
+			name:   "ignored headers",
+			path:   "/api/users",
+			method: "GET",
+			headers: map[string]string{
+				"Authorization": "Bearer token123",
+				"X-User-ID":     "user456",
+			},
+			shouldHashQuery: true,
+			hashHeaders:     []string{"Authorization", "X-User-ID"},
+			ignoreHeaders:   []string{"X-User-ID"},
+			want:            "GET:/api/users|Authorization=Bearer token123",
+		},
+		{
+			name:   "multiple values for same header",
+			path:   "/api/users",
+			method: "GET",
+			headers: map[string]string{
+				"Accept": "application/json,text/plain",
+			},
+			shouldHashQuery: true,
+			hashHeaders:     []string{"Accept"},
+			want:            "GET:/api/users|Accept=application/json,text/plain",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req, err := http.NewRequest(tt.method, tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Add query parameters if any
+			if tt.query != "" {
+				req.URL.RawQuery = tt.query
+			}
+
+			// Add headers
+			for key, value := range tt.headers {
+				req.Header.Set(key, value)
+			}
+
+			// Create handler with config
+			h := handler{
+				cfg: config.CacheConfig{
+					ShouldHashQuery: tt.shouldHashQuery,
+					HashQueryIgnore: make(map[string]bool),
+					HashHeaders:     tt.hashHeaders,
+				},
+			}
+
+			// Add ignored parameters
+			for _, param := range tt.ignoreParams {
+				h.cfg.HashQueryIgnore[param] = true
+			}
+
+			// Get cache key
+			got := h.getCacheKey(req)
+
+			// Calculate expected hash
+			expectedHash := sha256.New()
+			expectedHash.Write([]byte(tt.want))
+			expected := fmt.Sprintf("%x", expectedHash.Sum(nil))
+
+			assert.Equal(t, expected, got, "cache key mismatch")
 		})
 	}
 }

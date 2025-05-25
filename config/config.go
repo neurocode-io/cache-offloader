@@ -37,7 +37,9 @@ type CacheConfig struct {
 	IgnorePaths     []string
 	ShouldHashQuery bool
 	HashQueryIgnore map[string]bool
+	HashHeaders     []string
 }
+
 type Config struct {
 	ServerConfig ServerConfig
 	CacheConfig  CacheConfig
@@ -48,7 +50,7 @@ func New() Config {
 	serverConfig := ServerConfig{
 		Port:        getEnv("SERVER_PORT", "8000"),
 		GracePeriod: getEnvAsInt("SHUTDOWN_GRACE_PERIOD", "30"),
-		LogLevel:    getEnvAsLogLevel("SERVER_LOG_LEVEL"),
+		LogLevel:    getEnvAsLogLevel("LOG_LEVEL"),
 		Storage:     getEnv("SERVER_STORAGE", ""),
 	}
 
@@ -57,9 +59,10 @@ func New() Config {
 		DownstreamHost:  getEnvAsURL("DOWNSTREAM_HOST", ""),
 		Size:            getEnvAsFloat("CACHE_SIZE_MB", "10"),
 		IgnorePaths:     getEnvAsSlice("CACHE_IGNORE_ENDPOINTS"),
-		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "5"),
+		StaleInSeconds:  getEnvAsInt("CACHE_STALE_WHILE_REVALIDATE_SEC", "60"),
 		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", "true"),
 		HashQueryIgnore: hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
+		HashHeaders:     getEnvAsSlice("CACHE_HASH_HEADERS"),
 	}
 
 	if strings.ToLower(serverConfig.Storage) == "memory" {
