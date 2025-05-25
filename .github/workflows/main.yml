@@ -24,16 +24,13 @@ jobs:
         run: |
           make test
           make test-json
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      # - name: Build image and push to Docker Hub and GitHub Container Registry
-      #   uses: docker/build-push-action@v2
-      #   with:
-      #     context: .
-      #     tags: |
-      #       oskardudycz/eventsourcing.nodejs.simple:latest
-      #       ghcr.io/oskardudycz/eventsourcing.nodejs/simple:latest
-      #     push: ${{ github.ref == 'refs/heads/main' }}
