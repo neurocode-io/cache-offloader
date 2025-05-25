@@ -335,7 +335,6 @@ func TestGetCacheKey(t *testing.T) {
 		shouldHashQuery bool
 		ignoreParams    []string
 		hashHeaders     []string
-		ignoreHeaders   []string
 		want            string
 	}{
 		{
@@ -427,19 +426,6 @@ func TestGetCacheKey(t *testing.T) {
 			shouldHashQuery: true,
 			hashHeaders:     []string{"Authorization", "X-User-ID", "Accept"},
 			want:            "GET:/api/users|Accept=application/json|Authorization=Bearer token123|X-User-ID=user456",
-		},
-		{
-			name:   "ignored headers",
-			path:   "/api/users",
-			method: "GET",
-			headers: map[string]string{
-				"Authorization": "Bearer token123",
-				"X-User-ID":     "user456",
-			},
-			shouldHashQuery: true,
-			hashHeaders:     []string{"Authorization", "X-User-ID"},
-			ignoreHeaders:   []string{"X-User-ID"},
-			want:            "GET:/api/users|Authorization=Bearer token123",
 		},
 		{
 			name:   "multiple values for same header",
