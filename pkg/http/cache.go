@@ -6,12 +6,14 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"sort"
 	"strings"
 	"time"
+
+	"maps"
 
 	"github.com/rs/zerolog/log"
 
@@ -39,33 +41,68 @@ type (
 		worker           Worker
 		metricsCollector MetricsCollector
 		cfg              config.CacheConfig
+		httpClient       *http.Client
 	}
 )
 
 func (h handler) getCacheKey(req *http.Request) string {
 	cacheKey := sha256.New()
+
+	// Include HTTP method in the hash
+	cacheKey.Write([]byte(req.Method))
+	cacheKey.Write([]byte(":"))
+
+	// Add the path
 	cacheKey.Write([]byte(req.URL.Path))
 
-	if !h.cfg.ShouldHashQuery {
-		return fmt.Sprintf("% x", cacheKey.Sum(nil))
+	// Add query parameters if enabled
+	if h.cfg.ShouldHashQuery {
+		// Sort query parameters to ensure consistent ordering
+		query := req.URL.Query()
+		keys := make([]string, 0, len(query))
+		for k := range query {
+			if _, ok := h.cfg.HashQueryIgnore[k]; !ok {
+				keys = append(keys, k)
+			}
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			values := query[key]
+			sort.Strings(values)
+			for _, value := range values {
+				cacheKey.Write([]byte("&"))
+				cacheKey.Write([]byte(key))
+				cacheKey.Write([]byte("="))
+				cacheKey.Write([]byte(value))
+			}
+		}
 	}
 
-	for key, values := range req.URL.Query() {
-		if _, ok := h.cfg.HashQueryIgnore[key]; ok {
-			continue
-		}
-		for _, value := range values {
-			cacheKey.Write([]byte(fmt.Sprintf("&%s=%s", key, value)))
+	// Add headers if configured
+	if len(h.cfg.HashHeaders) > 0 {
+		// Sort headers to ensure consistent ordering
+		sort.Strings(h.cfg.HashHeaders)
+
+		for _, headerName := range h.cfg.HashHeaders {
+			values := req.Header.Values(headerName)
+			if len(values) > 0 {
+				sort.Strings(values)
+				for _, value := range values {
+					cacheKey.Write([]byte("|"))
+					cacheKey.Write([]byte(headerName))
+					cacheKey.Write([]byte("="))
+					cacheKey.Write([]byte(value))
+				}
+			}
 		}
 	}
 
-	return fmt.Sprintf("% x", cacheKey.Sum(nil))
+	return fmt.Sprintf("%x", cacheKey.Sum(nil))
 }
 
-func serveResponseFromMemory(res http.ResponseWriter, result *model.Response) {
-	for key, values := range result.Header {
-		res.Header()[key] = values
-	}
+func serveResponseFromMemory(res http.ResponseWriter, result model.Response) {
+	maps.Copy(res.Header(), result.Header)
 
 	res.WriteHeader(result.Status)
 	_, err := res.Write(result.Body)
@@ -81,11 +118,27 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 }
 
 func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheConfig) handler {
+	netTransport := &http.Transport{
+		MaxIdleConnsPerHost: 1000,
+		DisableKeepAlives:   false,
+		IdleConnTimeout:     time.Hour * 1,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+	}
+
 	return handler{
 		cacher:           c,
 		worker:           w,
 		metricsCollector: m,
 		cfg:              cfg,
+		httpClient: &http.Client{
+			Timeout:   time.Second * 10,
+			Transport: netTransport,
+		},
 	}
 }
 
@@ -94,34 +147,16 @@ func (h handler) asyncCacheRevalidate(hashKey string, req *http.Request) func() 
 		ctx := context.Background()
 		newReq := req.WithContext(ctx)
 
-		netTransport := &http.Transport{
-			MaxIdleConnsPerHost: 1000,
-			DisableKeepAlives:   false,
-			IdleConnTimeout:     time.Hour * 1,
-			Dial: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-		}
-		client := &http.Client{
-			Timeout:   time.Second * 10,
-			Transport: netTransport,
-		}
-
 		newReq.URL.Host = h.cfg.DownstreamHost.Host
 		newReq.URL.Scheme = h.cfg.DownstreamHost.Scheme
 		newReq.RequestURI = ""
-		resp, err := client.Do(newReq)
-		if resp != nil {
-			defer resp.Body.Close()
-		}
+
+		resp, err := h.httpClient.Do(newReq)
 		if err != nil {
 			log.Ctx(ctx).Error().Err(err).Msg("Errored when sending request to the server")
-
 			return
 		}
+		defer resp.Body.Close()
 
 		if err := h.cacheResponse(ctx, hashKey)(resp); err != nil {
 			log.Ctx(ctx).Error().Err(err).Msg("Errored when caching response")
@@ -171,43 +206,41 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if result.IsStale() {
 		go h.worker.Start(hashKey, h.asyncCacheRevalidate(hashKey, req))
 	}
-	serveResponseFromMemory(res, result)
+	serveResponseFromMemory(res, *result)
 }
 
 func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
 	return func(response *http.Response) error {
-		// if this function returns an error, the proxy will return a 502 Bad Gateway error to the client
-		// please see the proxy.ModifyResponse documentation for more information
 		logger := log.Ctx(ctx)
-
 		logger.Debug().Msg("got response from downstream service")
 		h.metricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
 
 		if response.StatusCode >= http.StatusInternalServerError {
 			logger.Warn().Msg("won't cache 5XX downstream responses")
-
 			return nil
 		}
 
 		body, readErr := io.ReadAll(response.Body)
-
 		if readErr != nil {
 			logger.Error().Err(readErr).Msg("error occurred reading response body")
-
 			return nil
 		}
 
-		header := response.Header
-		statusCode := response.StatusCode
-		newBody := ioutil.NopCloser(bytes.NewReader(body))
+		// Create a new reader for the response body
+		response.Body = io.NopCloser(bytes.NewReader(body))
 
-		response.Body = newBody
+		// Create a copy of the header to prevent modification of the original
+		headerCopy := make(http.Header)
+		maps.Copy(headerCopy, response.Header)
 
-		entry := model.Response{Body: body, Header: header, Status: statusCode}
+		entry := model.Response{
+			Body:   body,
+			Header: headerCopy,
+			Status: response.StatusCode,
+		}
 
 		if err := h.cacher.Store(ctx, hashKey, &entry); err != nil {
 			logger.Error().Err(err).Msg("error occurred storing response in memory")
-
 			return nil
 		}
 

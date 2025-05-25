@@ -12,11 +12,9 @@ import (
 
 func hashQueryIgnoreMap(queryIgnore []string) map[string]bool {
 	hashQueryIgnoreMap := make(map[string]bool)
-
-	for i := 0; i < len(queryIgnore); i++ {
-		hashQueryIgnoreMap[queryIgnore[i]] = true
+	for _, q := range queryIgnore {
+		hashQueryIgnoreMap[strings.ToLower(strings.TrimSpace(q))] = true
 	}
-
 	return hashQueryIgnoreMap
 }
 
@@ -55,8 +53,11 @@ func getEnvAsSlice(key string) []string {
 	if strSlice == "" {
 		return []string{}
 	}
-
-	return strings.Split(strSlice, ",")
+	parts := strings.Split(strSlice, ",")
+	for i, p := range parts {
+		parts[i] = strings.TrimSpace(p)
+	}
+	return parts
 }
 
 func getEnvAsInt(key, defaultVal string) int {
