@@ -34,7 +34,7 @@ func getEnvAsLogLevel(key string) zerolog.Level {
 	value, exists := os.LookupEnv(key)
 
 	if !exists {
-		log.Info().Msg("SERVER_LOG_LEVEL was not set, falling back to warn level")
+		log.Info().Msg("LOG_LEVEL was not set, falling back to warn level")
 
 		return zerolog.WarnLevel
 	}
@@ -43,7 +43,7 @@ func getEnvAsLogLevel(key string) zerolog.Level {
 		return level
 	}
 
-	log.Warn().Msgf("SERVER_LOG_LEVEL: %s is unknown, falling back to warn level", value)
+	log.Warn().Msgf("LOG_LEVEL: %s is unknown, falling back to warn level", value)
 
 	return zerolog.WarnLevel
 }

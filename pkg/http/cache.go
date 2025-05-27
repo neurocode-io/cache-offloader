@@ -42,6 +42,7 @@ type (
 		metricsCollector MetricsCollector
 		cfg              config.CacheConfig
 		httpClient       *http.Client
+		proxy            *httputil.ReverseProxy
 	}
 )
 
@@ -119,26 +120,35 @@ func errHandler(res http.ResponseWriter, req *http.Request, err error) {
 
 func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheConfig) handler {
 	netTransport := &http.Transport{
-		MaxIdleConnsPerHost: 1000,
-		DisableKeepAlives:   false,
-		IdleConnTimeout:     time.Hour * 1,
-		Dial: (&net.Dialer{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
 			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
+			KeepAlive: 60 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          1000,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
 	}
+
+	httpClient := &http.Client{
+		Timeout:   time.Second * 30,
+		Transport: netTransport,
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(cfg.DownstreamHost)
+	proxy.Transport = netTransport
 
 	return handler{
 		cacher:           c,
 		worker:           w,
 		metricsCollector: m,
 		cfg:              cfg,
-		httpClient: &http.Client{
-			Timeout:   time.Second * 10,
-			Transport: netTransport,
-		},
+		httpClient:       httpClient,
+		proxy:            proxy,
 	}
 }
 
@@ -165,23 +175,22 @@ func (h handler) asyncCacheRevalidate(hashKey string, req *http.Request) func() 
 }
 
 func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	proxy := httputil.NewSingleHostReverseProxy(h.cfg.DownstreamHost)
-	proxy.ErrorHandler = errHandler
+	h.proxy.ErrorHandler = errHandler
 	logger := log.With().Str("path", req.URL.Path).Str("method", req.Method).Logger()
 	logCtx := logger.WithContext(req.Context())
 
 	// websockets
 	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
 		logger.Info().Msg("will not cache websocket request")
-		proxy.ServeHTTP(res, req)
-
+		h.proxy.ModifyResponse = nil
+		h.proxy.ServeHTTP(res, req)
 		return
 	}
 
 	if strings.ToLower(req.Method) != "get" {
 		logger.Debug().Msg("will not cache non-GET request")
-		proxy.ServeHTTP(res, req)
-
+		h.proxy.ModifyResponse = nil
+		h.proxy.ServeHTTP(res, req)
 		return
 	}
 
@@ -193,10 +202,9 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if result == nil {
-		proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
+		h.proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
 		logger.Debug().Msg("will cache response from downstream")
-		proxy.ServeHTTP(res, req)
-
+		h.proxy.ServeHTTP(res, req)
 		return
 	}
 

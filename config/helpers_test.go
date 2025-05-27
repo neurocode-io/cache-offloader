@@ -33,29 +33,29 @@ func setupEnv(t *testing.T, envVar, value string) func() {
 func TestConfigHelpers(t *testing.T) {
 	t.Run("getEnv", func(t *testing.T) {
 		t.Run("should return the default value if env not set", func(t *testing.T) {
-			defer unsetEnv(t, "SERVER_LOG_LEVEL")()
-			got := getEnv("SERVER_LOG_LEVEL", "warn")
+			defer unsetEnv(t, "LOG_LEVEL")()
+			got := getEnv("LOG_LEVEL", "warn")
 
 			assert.Equal(t, "warn", got)
 		})
 		t.Run("should panic if env and default value not set", func(t *testing.T) {
-			defer unsetEnv(t, "SERVER_LOG_LEVEL")()
+			defer unsetEnv(t, "LOG_LEVEL")()
 
 			assert.Panics(t, func() {
-				getEnv("SERVER_LOG_LEVEL", "")
+				getEnv("LOG_LEVEL", "")
 			})
 		})
 	})
 	t.Run("getEnvAsLogLevel", func(t *testing.T) {
 		t.Run("should default to warn if no logLevel set", func(t *testing.T) {
-			defer unsetEnv(t, "SERVER_LOG_LEVEL")()
-			got := getEnvAsLogLevel("SERVER_LOG_LEVEL")
+			defer unsetEnv(t, "LOG_LEVEL")()
+			got := getEnvAsLogLevel("LOG_LEVEL")
 
 			assert.Equal(t, zerolog.WarnLevel, got)
 		})
 		t.Run("should set logLevel from environment", func(t *testing.T) {
-			defer setupEnv(t, "SERVER_LOG_LEVEL", "info")()
-			got := getEnvAsLogLevel("SERVER_LOG_LEVEL")
+			defer setupEnv(t, "LOG_LEVEL", "info")()
+			got := getEnvAsLogLevel("LOG_LEVEL")
 
 			assert.Equal(t, zerolog.InfoLevel, got)
 		})
