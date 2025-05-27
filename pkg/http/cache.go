@@ -42,7 +42,6 @@ type (
 		metricsCollector MetricsCollector
 		cfg              config.CacheConfig
 		httpClient       *http.Client
-		proxy            *httputil.ReverseProxy
 	}
 )
 
@@ -139,16 +138,12 @@ func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheCon
 		Transport: netTransport,
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(cfg.DownstreamHost)
-	proxy.Transport = netTransport
-
 	return handler{
 		cacher:           c,
 		worker:           w,
 		metricsCollector: m,
 		cfg:              cfg,
 		httpClient:       httpClient,
-		proxy:            proxy,
 	}
 }
 
@@ -175,22 +170,23 @@ func (h handler) asyncCacheRevalidate(hashKey string, req *http.Request) func() 
 }
 
 func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	h.proxy.ErrorHandler = errHandler
 	logger := log.With().Str("path", req.URL.Path).Str("method", req.Method).Logger()
 	logCtx := logger.WithContext(req.Context())
+
+	proxy := httputil.NewSingleHostReverseProxy(h.cfg.DownstreamHost)
+	proxy.Transport = h.httpClient.Transport
+	proxy.ErrorHandler = errHandler
 
 	// websockets
 	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
 		logger.Info().Msg("will not cache websocket request")
-		h.proxy.ModifyResponse = nil
-		h.proxy.ServeHTTP(res, req)
+		proxy.ServeHTTP(res, req)
 		return
 	}
 
 	if strings.ToLower(req.Method) != "get" {
 		logger.Debug().Msg("will not cache non-GET request")
-		h.proxy.ModifyResponse = nil
-		h.proxy.ServeHTTP(res, req)
+		proxy.ServeHTTP(res, req)
 		return
 	}
 
@@ -202,9 +198,9 @@ func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if result == nil {
-		h.proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
+		proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
 		logger.Debug().Msg("will cache response from downstream")
-		h.proxy.ServeHTTP(res, req)
+		proxy.ServeHTTP(res, req)
 		return
 	}
 
