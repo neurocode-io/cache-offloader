@@ -227,7 +227,7 @@ func (h handler) asyncCacheRevalidate(key string, orig *http.Request) func() {
 		req.Header = cloneHeaders(orig.Header)
 		stripHopByHop(req.Header)
 		req.Header.Del("Range")
-		log.Ctx(orig.Context()).Debug().Str("key", key).Str("url", u.String()).Msg("revalidating cache")
+		log.Ctx(orig.Context()).Debug().Str("cachKey", key).Msg("revalidating cache")
 
 		resp, err := h.httpClient.Do(req)
 		if err != nil {
@@ -243,7 +243,13 @@ func (h handler) asyncCacheRevalidate(key string, orig *http.Request) func() {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := log.With().Str("path", r.URL.Path).Str("method", r.Method).Logger()
+	logger := log.With().Fields(map[string]any{
+		"request": map[string]any{
+			"path":        r.URL.Path,
+			"method":      strings.ToLower(r.Method),
+			"queryParams": r.URL.Query().Encode(),
+		},
+	}).Logger()
 	ctx := logger.WithContext(r.Context())
 
 	if strings.ToUpper(r.Method) != http.MethodGet || r.Header.Get("Range") != "" {
@@ -275,7 +281,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if entry.IsStale() {
 		go h.worker.Start(key, h.asyncCacheRevalidate(key, r))
 	}
-	logger.Debug().Str("key", key).Int("status", entry.Status).Msg("serving cached response")
+	logger.Debug().Str("cacheKey", key).Msg("serving cached response")
 	serveResponseFromMemory(w, *entry)
 }
 
@@ -288,6 +294,7 @@ func (h handler) cacheResponse(ctx context.Context, key string) func(*http.Respo
 			return nil
 		}
 		if !(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent) {
+			lg.Debug().Str("cacheKey", key).Int("status", resp.StatusCode).Msg("skipping cache: not 200 or 204")
 			return nil
 		}
 		// TODO: add cache control back in
@@ -299,7 +306,7 @@ func (h handler) cacheResponse(ctx context.Context, key string) func(*http.Respo
 			return nil
 		}
 
-		lg.Debug().Str("key", key).Int("status", resp.StatusCode).Msg("caching response")
+		lg.Debug().Str("cacheKey", key).Msg("caching response")
 
 		lr := &io.LimitedReader{R: resp.Body, N: maxCacheBytes + 1}
 		body, err := io.ReadAll(lr)
