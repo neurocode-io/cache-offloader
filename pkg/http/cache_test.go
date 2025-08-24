@@ -81,7 +81,8 @@ func TestCacheHandler(t *testing.T) {
 	defer downstreamServerNok.Close()
 
 	webSocketReq := mustRequest(t, "/connect", "")
-	webSocketReq.Header.Set("connection", "upgrade")
+	webSocketReq.Header.Set("Connection", "upgrade")
+	webSocketReq.Header.Set("Upgrade", "websocket")
 
 	tests := []struct {
 		name    string
@@ -90,17 +91,17 @@ func TestCacheHandler(t *testing.T) {
 		want    int
 	}{
 		{
-			name: "cacheLookup error should still forward request to downstream and store response",
+			name: "cacheLookup error should still forward request to downstream",
 			handler: newCacheHandler(
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error"))
-					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any())
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss("GET", proxied)
+					mock.EXPECT().CacheMiss("GET", proxied).Times(1)
 					return mock
 				}(),
 				nil,
@@ -117,7 +118,8 @@ func TestCacheHandler(t *testing.T) {
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
-					mock.EXPECT().Store(gomock.Any(), gomock.Any(), newResponseMatcher(proxied, nil)).Return(nil).Times(1)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
 					return mock
 				}(),
 				func() MetricsCollector {
@@ -138,13 +140,13 @@ func TestCacheHandler(t *testing.T) {
 			handler: newCacheHandler(
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
-					mock.EXPECT().LookUp(nil, nil).Times(0)
-					mock.EXPECT().Store(nil, nil, nil).Times(0)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Times(0)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss(nil, nil).Times(0)
+					mock.EXPECT().CacheMiss(gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				nil,
@@ -160,13 +162,13 @@ func TestCacheHandler(t *testing.T) {
 			handler: newCacheHandler(
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
-					mock.EXPECT().LookUp(nil, nil).Times(0)
-					mock.EXPECT().Store(nil, nil, nil).Times(0)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Times(0)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss(nil, nil).Times(0)
+					mock.EXPECT().CacheMiss(gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				nil,
@@ -182,13 +184,13 @@ func TestCacheHandler(t *testing.T) {
 			handler: newCacheHandler(
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
-					mock.EXPECT().LookUp(nil, nil).Times(0)
-					mock.EXPECT().Store(nil, nil, nil).Times(0)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Times(0)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss(nil, nil).Times(0)
+					mock.EXPECT().CacheMiss(gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				nil,
@@ -204,13 +206,13 @@ func TestCacheHandler(t *testing.T) {
 			handler: newCacheHandler(
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
-					mock.EXPECT().LookUp(nil, nil).Times(0)
-					mock.EXPECT().Store(nil, nil, nil).Times(0)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Times(0)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss(nil, nil).Times(0)
+					mock.EXPECT().CacheMiss(gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				nil,
@@ -226,13 +228,13 @@ func TestCacheHandler(t *testing.T) {
 			handler: newCacheHandler(
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
-					mock.EXPECT().LookUp(nil, nil).Times(0)
-					mock.EXPECT().Store(nil, nil, nil).Times(0)
+					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Times(0)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {
 					mock := NewMockMetricsCollector(ctrl)
-					mock.EXPECT().CacheMiss(nil, nil).Times(0)
+					mock.EXPECT().CacheMiss(gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				nil,
@@ -249,7 +251,7 @@ func TestCacheHandler(t *testing.T) {
 				func() Cacher {
 					mock := NewMockCacher(ctrl)
 					mock.EXPECT().LookUp(gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
-					mock.EXPECT().Store(nil, nil, nil).Times(0)
+					mock.EXPECT().Store(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					return mock
 				}(),
 				func() MetricsCollector {

@@ -220,6 +220,7 @@ func (h handler) asyncCacheRevalidate(key string, orig *http.Request) func() {
 		req.Header = cloneHeaders(orig.Header)
 		stripHopByHop(req.Header)
 		req.Header.Del("Range")
+		log.Ctx(orig.Context()).Debug().Str("key", key).Str("url", u.String()).Msg("revalidating cache")
 
 		resp, err := h.httpClient.Do(req)
 		if err != nil {
@@ -257,7 +258,6 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if entry == nil {
 		cr := h.cacheResponse(ctx, key)
-		h.metricsCollector.CacheMiss(r.Method, 0) // final status will be recorded in ModifyResponse
 		r2 := r.WithContext(context.WithValue(ctx, ctxKeyCacheFunc, cr))
 		h.proxy.ServeHTTP(w, r2)
 		return
@@ -267,12 +267,14 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if entry.IsStale() {
 		go h.worker.Start(key, h.asyncCacheRevalidate(key, r))
 	}
+	logger.Debug().Str("key", key).Int("status", entry.Status).Msg("serving cached response")
 	serveResponseFromMemory(w, *entry)
 }
 
 func (h handler) cacheResponse(ctx context.Context, key string) func(*http.Response) error {
 	return func(resp *http.Response) error {
 		lg := log.Ctx(ctx)
+		h.metricsCollector.CacheMiss(resp.Request.Method, resp.StatusCode)
 
 		if resp.StatusCode >= http.StatusInternalServerError {
 			return nil
@@ -287,6 +289,8 @@ func (h handler) cacheResponse(ctx context.Context, key string) func(*http.Respo
 		if resp.Header.Get("Set-Cookie") != "" {
 			return nil
 		}
+
+		lg.Debug().Str("key", key).Int("status", resp.StatusCode).Msg("caching response")
 
 		lr := &io.LimitedReader{R: resp.Body, N: maxCacheBytes + 1}
 		body, err := io.ReadAll(lr)
