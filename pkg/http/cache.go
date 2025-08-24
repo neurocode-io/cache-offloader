@@ -42,22 +42,64 @@ type (
 		metricsCollector MetricsCollector
 		cfg              config.CacheConfig
 		httpClient       *http.Client
+		proxy            *httputil.ReverseProxy
 	}
 )
 
+type ctxKey string
+
+const (
+	ctxKeyCacheFunc ctxKey = "cacheFunc"
+	maxCacheBytes          = int64(10 << 20) // 10MiB
+)
+
+var hopByHop = map[string]struct{}{
+	"Connection":          {},
+	"Keep-Alive":          {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+	"TE":                  {},
+	"Trailers":            {},
+	"Transfer-Encoding":   {},
+	"Upgrade":             {},
+}
+
+func stripHopByHop(h http.Header) {
+	if c := h.Values("Connection"); len(c) > 0 {
+		for _, v := range c {
+			for _, tok := range strings.Split(v, ",") {
+				delete(h, http.CanonicalHeaderKey(strings.TrimSpace(tok)))
+			}
+		}
+	}
+	for k := range hopByHop {
+		delete(h, k)
+	}
+}
+
+func isWebSocket(r *http.Request) bool {
+	connVals := strings.ToLower(strings.Join(r.Header.Values("Connection"), ","))
+	if !strings.Contains(connVals, "upgrade") {
+		return false
+	}
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
+}
+
+func cloneHeaders(src http.Header) http.Header {
+	dst := make(http.Header, len(src))
+	for k, v := range src {
+		dst[k] = append([]string(nil), v...)
+	}
+	return dst
+}
+
 func (h handler) getCacheKey(req *http.Request) string {
-	cacheKey := sha256.New()
+	hash := sha256.New()
+	hash.Write([]byte(req.Method))
+	hash.Write([]byte(":"))
+	hash.Write([]byte(req.URL.Path))
 
-	// Include HTTP method in the hash
-	cacheKey.Write([]byte(req.Method))
-	cacheKey.Write([]byte(":"))
-
-	// Add the path
-	cacheKey.Write([]byte(req.URL.Path))
-
-	// Add query parameters if enabled
 	if h.cfg.ShouldHashQuery {
-		// Sort query parameters to ensure consistent ordering
 		query := req.URL.Query()
 		keys := make([]string, 0, len(query))
 		for k := range query {
@@ -66,55 +108,52 @@ func (h handler) getCacheKey(req *http.Request) string {
 			}
 		}
 		sort.Strings(keys)
-
 		for _, key := range keys {
 			values := query[key]
 			sort.Strings(values)
 			for _, value := range values {
-				cacheKey.Write([]byte("&"))
-				cacheKey.Write([]byte(key))
-				cacheKey.Write([]byte("="))
-				cacheKey.Write([]byte(value))
+				hash.Write([]byte("&"))
+				hash.Write([]byte(key))
+				hash.Write([]byte("="))
+				hash.Write([]byte(value))
 			}
 		}
 	}
 
-	// Add headers if configured
 	if len(h.cfg.HashHeaders) > 0 {
-		// Sort headers to ensure consistent ordering
 		sort.Strings(h.cfg.HashHeaders)
-
 		for _, headerName := range h.cfg.HashHeaders {
 			values := req.Header.Values(headerName)
 			if len(values) > 0 {
 				sort.Strings(values)
 				for _, value := range values {
-					cacheKey.Write([]byte("|"))
-					cacheKey.Write([]byte(headerName))
-					cacheKey.Write([]byte("="))
-					cacheKey.Write([]byte(value))
+					hash.Write([]byte("|"))
+					hash.Write([]byte(headerName))
+					hash.Write([]byte("="))
+					hash.Write([]byte(value))
 				}
 			}
 		}
 	}
 
-	return fmt.Sprintf("%x", cacheKey.Sum(nil))
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func serveResponseFromMemory(res http.ResponseWriter, result model.Response) {
-	maps.Copy(res.Header(), result.Header)
-
-	res.WriteHeader(result.Status)
-	_, err := res.Write(result.Body)
-
-	if err != nil {
-		log.Error().Err(err).Msg("Error occurred serving response from memory")
+func serveResponseFromMemory(w http.ResponseWriter, res model.Response) {
+	for k, vv := range res.Header {
+		w.Header()[k] = append([]string(nil), vv...)
+	}
+	stripHopByHop(w.Header())
+	w.Header().Set("Content-Length", fmt.Sprint(len(res.Body)))
+	w.WriteHeader(res.Status)
+	if _, err := w.Write(res.Body); err != nil {
+		log.Error().Err(err).Msg("write cached body")
 	}
 }
 
-func errHandler(res http.ResponseWriter, req *http.Request, err error) {
+func errHandler(w http.ResponseWriter, r *http.Request, err error) {
 	log.Error().Err(err).Msg("downstream server is down")
-	http.Error(res, "service unavailable", http.StatusBadGateway)
+	http.Error(w, "service unavailable", http.StatusBadGateway)
 }
 
 func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheConfig) handler {
@@ -124,18 +163,39 @@ func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheCon
 			Timeout:   10 * time.Second,
 			KeepAlive: 60 * time.Second,
 		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          1000,
-		MaxIdleConnsPerHost:   100,
+		MaxIdleConns:          4096,
+		MaxIdleConnsPerHost:   1024,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
+		DisableCompression:    true,
+		ForceAttemptHTTP2:     true,
 	}
 
 	httpClient := &http.Client{
-		Timeout:   time.Second * 30,
+		Timeout:   60 * time.Second,
 		Transport: netTransport,
+	}
+
+	rp := httputil.NewSingleHostReverseProxy(cfg.DownstreamHost)
+	rp.Transport = netTransport
+	rp.ErrorHandler = errHandler
+
+	origDirector := rp.Director
+	rp.Director = func(r *http.Request) {
+		origDirector(r)
+		r.Host = cfg.DownstreamHost.Host
+		stripHopByHop(r.Header)
+		if r.Header.Get("Range") != "" {
+			r.Header.Del("Range")
+		}
+	}
+
+	rp.ModifyResponse = func(resp *http.Response) error {
+		if fn, ok := resp.Request.Context().Value(ctxKeyCacheFunc).(func(*http.Response) error); ok && fn != nil {
+			return fn(resp)
+		}
+		return nil
 	}
 
 	return handler{
@@ -144,110 +204,119 @@ func newCacheHandler(c Cacher, m MetricsCollector, w Worker, cfg config.CacheCon
 		metricsCollector: m,
 		cfg:              cfg,
 		httpClient:       httpClient,
+		proxy:            rp,
 	}
 }
 
-func (h handler) asyncCacheRevalidate(hashKey string, req *http.Request) func() {
+func (h handler) asyncCacheRevalidate(key string, orig *http.Request) func() {
 	return func() {
 		ctx := context.Background()
-		newReq := req.WithContext(ctx)
 
-		newReq.URL.Host = h.cfg.DownstreamHost.Host
-		newReq.URL.Scheme = h.cfg.DownstreamHost.Scheme
-		newReq.RequestURI = ""
+		u := *orig.URL
+		u.Scheme = h.cfg.DownstreamHost.Scheme
+		u.Host = h.cfg.DownstreamHost.Host
 
-		resp, err := h.httpClient.Do(newReq)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		req.Header = cloneHeaders(orig.Header)
+		stripHopByHop(req.Header)
+		req.Header.Del("Range")
+
+		resp, err := h.httpClient.Do(req)
 		if err != nil {
-			log.Ctx(ctx).Error().Err(err).Msg("Errored when sending request to the server")
+			log.Ctx(ctx).Error().Err(err).Msg("revalidate request")
 			return
 		}
 		defer resp.Body.Close()
 
-		if err := h.cacheResponse(ctx, hashKey)(resp); err != nil {
-			log.Ctx(ctx).Error().Err(err).Msg("Errored when caching response")
+		if err := h.cacheResponse(ctx, key)(resp); err != nil {
+			log.Ctx(ctx).Error().Err(err).Msg("revalidate cache store")
 		}
 	}
 }
 
-func (h handler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	logger := log.With().Str("path", req.URL.Path).Str("method", req.Method).Logger()
-	logCtx := logger.WithContext(req.Context())
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger := log.With().Str("path", r.URL.Path).Str("method", r.Method).Logger()
+	ctx := logger.WithContext(r.Context())
 
-	proxy := httputil.NewSingleHostReverseProxy(h.cfg.DownstreamHost)
-	proxy.Transport = h.httpClient.Transport
-	proxy.ErrorHandler = errHandler
-
-	// websockets
-	if strings.ToLower(req.Header.Get("connection")) == "upgrade" {
-		logger.Info().Msg("will not cache websocket request")
-		proxy.ServeHTTP(res, req)
+	if strings.ToUpper(r.Method) != http.MethodGet || r.Header.Get("Range") != "" {
+		h.proxy.ServeHTTP(w, r)
 		return
 	}
 
-	if strings.ToLower(req.Method) != "get" {
-		logger.Debug().Msg("will not cache non-GET request")
-		proxy.ServeHTTP(res, req)
+	if isWebSocket(r) {
+		logger.Info().Msg("skip cache: websocket")
+		h.proxy.ServeHTTP(w, r)
 		return
 	}
 
-	hashKey := h.getCacheKey(req)
-
-	result, err := h.cacher.LookUp(logCtx, hashKey)
+	key := h.getCacheKey(r)
+	entry, err := h.cacher.LookUp(ctx, key)
 	if err != nil {
-		logger.Warn().Err(err).Msg("lookup error occurred")
+		logger.Warn().Err(err).Msg("lookup error")
 	}
 
-	if result == nil {
-		proxy.ModifyResponse = h.cacheResponse(logCtx, hashKey)
-		logger.Debug().Msg("will cache response from downstream")
-		proxy.ServeHTTP(res, req)
+	if entry == nil {
+		cr := h.cacheResponse(ctx, key)
+		h.metricsCollector.CacheMiss(r.Method, 0) // final status will be recorded in ModifyResponse
+		r2 := r.WithContext(context.WithValue(ctx, ctxKeyCacheFunc, cr))
+		h.proxy.ServeHTTP(w, r2)
 		return
 	}
 
-	logger.Info().Msg("serving request from memory")
-	h.metricsCollector.CacheHit(req.Method, result.Status)
-
-	if result.IsStale() {
-		go h.worker.Start(hashKey, h.asyncCacheRevalidate(hashKey, req))
+	h.metricsCollector.CacheHit(r.Method, entry.Status)
+	if entry.IsStale() {
+		go h.worker.Start(key, h.asyncCacheRevalidate(key, r))
 	}
-	serveResponseFromMemory(res, *result)
+	serveResponseFromMemory(w, *entry)
 }
 
-func (h handler) cacheResponse(ctx context.Context, hashKey string) func(*http.Response) error {
-	return func(response *http.Response) error {
-		logger := log.Ctx(ctx)
-		logger.Debug().Msg("got response from downstream service")
-		h.metricsCollector.CacheMiss(response.Request.Method, response.StatusCode)
+func (h handler) cacheResponse(ctx context.Context, key string) func(*http.Response) error {
+	return func(resp *http.Response) error {
+		lg := log.Ctx(ctx)
 
-		if response.StatusCode >= http.StatusInternalServerError {
-			logger.Warn().Msg("won't cache 5XX downstream responses")
+		if resp.StatusCode >= http.StatusInternalServerError {
+			return nil
+		}
+		if !(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent) {
+			return nil
+		}
+		cc := resp.Header.Get("Cache-Control")
+		if strings.Contains(cc, "no-store") || strings.Contains(cc, "private") {
+			return nil
+		}
+		if resp.Header.Get("Set-Cookie") != "" {
 			return nil
 		}
 
-		body, readErr := io.ReadAll(response.Body)
-		if readErr != nil {
-			logger.Error().Err(readErr).Msg("error occurred reading response body")
+		lr := &io.LimitedReader{R: resp.Body, N: maxCacheBytes + 1}
+		body, err := io.ReadAll(lr)
+		if err != nil {
+			lg.Error().Err(err).Msg("read body")
+			return nil
+		}
+		if lr.N <= 0 {
+			lg.Warn().Msg("skip cache: body too large")
 			return nil
 		}
 
-		// Create a new reader for the response body
-		response.Body = io.NopCloser(bytes.NewReader(body))
+		resp.Body = io.NopCloser(bytes.NewReader(body))
 
-		// Create a copy of the header to prevent modification of the original
-		headerCopy := make(http.Header)
-		maps.Copy(headerCopy, response.Header)
+		headerCopy := make(http.Header, len(resp.Header))
+		maps.Copy(headerCopy, resp.Header)
+		stripHopByHop(headerCopy)
+		delete(headerCopy, "Set-Cookie")
 
 		entry := model.Response{
 			Body:   body,
 			Header: headerCopy,
-			Status: response.StatusCode,
+			Status: resp.StatusCode,
 		}
 
-		if err := h.cacher.Store(ctx, hashKey, &entry); err != nil {
-			logger.Error().Err(err).Msg("error occurred storing response in memory")
+		if err := h.cacher.Store(ctx, key, &entry); err != nil {
+			lg.Error().Err(err).Msg("store cache")
 			return nil
 		}
-
+		h.metricsCollector.CacheMiss(resp.Request.Method, resp.StatusCode)
 		return nil
 	}
 }

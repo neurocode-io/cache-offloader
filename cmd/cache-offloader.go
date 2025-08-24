@@ -13,7 +13,6 @@ import (
 	"github.com/neurocode-io/cache-offloader/pkg/worker"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/rs/zerolog/pkgerrors"
 )
 
 func getInMemoryStorage(cfg config.Config) http.Cacher {
@@ -52,8 +51,7 @@ func getRedisMemoryStorage(cfg config.Config) storage.RedisStorage {
 func setupLogging(logLevel zerolog.Level) {
 	zerolog.SetGlobalLevel(logLevel)
 	zerolog.MessageFieldName = "msg"
-	zerolog.TimeFieldFormat = time.RFC3339Nano
-	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+	zerolog.TimeFieldFormat = time.RFC3339
 	l := log.Level(logLevel)
 	zerolog.DefaultContextLogger = &l
 }
