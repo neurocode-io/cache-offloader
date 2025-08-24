@@ -94,17 +94,20 @@ func cloneHeaders(src http.Header) http.Header {
 }
 
 func (h handler) getCacheKey(req *http.Request) string {
-	// Check for global cache keys first
-	for pattern, globalKey := range h.cfg.GlobalCacheKeys {
-		if strings.HasPrefix(req.URL.Path, pattern) {
-			return globalKey
-		}
-	}
-
 	hash := sha256.New()
 	hash.Write([]byte(req.Method))
 	hash.Write([]byte(":"))
 	hash.Write([]byte(req.URL.Path))
+
+	// Check for global cache keys first
+	for pattern, globalKey := range h.cfg.GlobalCacheKeys {
+		if strings.HasPrefix(req.URL.Path, pattern) {
+			hash.Write([]byte(":"))
+			hash.Write([]byte(globalKey))
+
+			return fmt.Sprintf("%x", hash.Sum(nil))
+		}
+	}
 
 	if h.cfg.ShouldHashQuery {
 		query := req.URL.Query()
