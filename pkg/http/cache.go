@@ -110,9 +110,10 @@ func (h handler) getCacheKey(req *http.Request) string {
 		query := req.URL.Query()
 		keys := make([]string, 0, len(query))
 		for k := range query {
-			if _, ok := h.cfg.HashQueryIgnore[k]; !ok {
-				keys = append(keys, k)
+			if _, ok := h.cfg.HashQueryIgnore[strings.ToLower(k)]; ok {
+				continue
 			}
+			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 		for _, key := range keys {
