@@ -18,6 +18,35 @@ func hashQueryIgnoreMap(queryIgnore []string) map[string]bool {
 	return hashQueryIgnoreMap
 }
 
+func parseGlobalCacheKeys(globalKeysStr string) map[string]string {
+	globalKeys := make(map[string]string)
+	if globalKeysStr == "" {
+		return globalKeys
+	}
+
+	// Expected format: "pattern1:key1,pattern2:key2"
+	// Example: "/assets:static-assets,/_next:nextjs-assets,/static:static-files"
+	pairs := strings.SplitSeq(globalKeysStr, ",")
+	for pair := range pairs {
+		trimmedPair := strings.TrimSpace(pair)
+		if trimmedPair == "" {
+			continue
+		}
+
+		// Split on colon and ensure exactly one colon exists
+		parts := strings.Split(trimmedPair, ":")
+		if len(parts) == 2 {
+			pattern := strings.TrimSpace(parts[0])
+			key := strings.TrimSpace(parts[1])
+			if pattern != "" && key != "" {
+				globalKeys[pattern] = key
+			}
+		}
+		// Ignore malformed pairs with 0, 1, or more than 2 parts
+	}
+	return globalKeys
+}
+
 func getEnv(key, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return strings.TrimSpace(value)

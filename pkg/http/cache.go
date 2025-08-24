@@ -94,6 +94,13 @@ func cloneHeaders(src http.Header) http.Header {
 }
 
 func (h handler) getCacheKey(req *http.Request) string {
+	// Check for global cache keys first
+	for pattern, globalKey := range h.cfg.GlobalCacheKeys {
+		if strings.HasPrefix(req.URL.Path, pattern) {
+			return globalKey
+		}
+	}
+
 	hash := sha256.New()
 	hash.Write([]byte(req.Method))
 	hash.Write([]byte(":"))
@@ -240,12 +247,13 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := logger.WithContext(r.Context())
 
 	if strings.ToUpper(r.Method) != http.MethodGet || r.Header.Get("Range") != "" {
+		logger.Debug().Msg("skipping cache")
 		h.proxy.ServeHTTP(w, r)
 		return
 	}
 
 	if isWebSocket(r) {
-		logger.Info().Msg("skip cache: websocket")
+		logger.Debug().Msg("skipping cache: websocket")
 		h.proxy.ServeHTTP(w, r)
 		return
 	}
@@ -282,10 +290,11 @@ func (h handler) cacheResponse(ctx context.Context, key string) func(*http.Respo
 		if !(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent) {
 			return nil
 		}
-		cc := resp.Header.Get("Cache-Control")
-		if strings.Contains(cc, "no-store") || strings.Contains(cc, "private") {
-			return nil
-		}
+		// TODO: add cache control back in
+		// cc := resp.Header.Get("Cache-Control")
+		// if strings.Contains(cc, "no-store") || strings.Contains(cc, "private") {
+		// 	return nil
+		// }
 		if resp.Header.Get("Set-Cookie") != "" {
 			return nil
 		}

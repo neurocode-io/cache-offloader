@@ -158,4 +158,64 @@ func TestConfigHelpers(t *testing.T) {
 			})
 		})
 	})
+	t.Run("parseGlobalCacheKeys", func(t *testing.T) {
+		t.Run("should parse valid global cache keys", func(t *testing.T) {
+			input := "/assets:static-assets,/_next:nextjs-assets,/static:static-files"
+			got := parseGlobalCacheKeys(input)
+
+			expected := map[string]string{
+				"/assets": "static-assets",
+				"/_next":  "nextjs-assets",
+				"/static": "static-files",
+			}
+
+			assert.Equal(t, expected, got)
+		})
+		t.Run("should handle empty string", func(t *testing.T) {
+			got := parseGlobalCacheKeys("")
+			assert.Equal(t, map[string]string{}, got)
+		})
+		t.Run("should handle single pair", func(t *testing.T) {
+			input := "/assets:static-assets"
+			got := parseGlobalCacheKeys(input)
+
+			expected := map[string]string{
+				"/assets": "static-assets",
+			}
+
+			assert.Equal(t, expected, got)
+		})
+		t.Run("should handle spaces around delimiters", func(t *testing.T) {
+			input := " /assets : static-assets , /_next : nextjs-assets "
+			got := parseGlobalCacheKeys(input)
+
+			expected := map[string]string{
+				"/assets": "static-assets",
+				"/_next":  "nextjs-assets",
+			}
+
+			assert.Equal(t, expected, got)
+		})
+		t.Run("should ignore malformed pairs", func(t *testing.T) {
+			input := "/assets:static-assets,invalid,/_next:nextjs-assets,also:invalid:format"
+			got := parseGlobalCacheKeys(input)
+
+			expected := map[string]string{
+				"/assets": "static-assets",
+				"/_next":  "nextjs-assets",
+			}
+
+			assert.Equal(t, expected, got)
+		})
+		t.Run("should ignore empty keys or values", func(t *testing.T) {
+			input := ":empty-key,empty-value:,/assets:static-assets"
+			got := parseGlobalCacheKeys(input)
+
+			expected := map[string]string{
+				"/assets": "static-assets",
+			}
+
+			assert.Equal(t, expected, got)
+		})
+	})
 }

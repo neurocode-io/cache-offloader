@@ -465,3 +465,139 @@ func TestGetCacheKey(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCacheKeyWithGlobalKeys(t *testing.T) {
+	tests := []struct {
+		name            string
+		path            string
+		method          string
+		query           string
+		headers         map[string]string
+		globalCacheKeys map[string]string
+		want            string
+	}{
+		{
+			name:   "global key for assets path",
+			path:   "/assets/script.js",
+			method: "GET",
+			globalCacheKeys: map[string]string{
+				"/assets": "static-assets",
+			},
+			want: "static-assets",
+		},
+		{
+			name:   "global key for _next path",
+			path:   "/_next/static/chunk.js",
+			method: "GET",
+			globalCacheKeys: map[string]string{
+				"/_next": "nextjs-assets",
+			},
+			want: "nextjs-assets",
+		},
+		{
+			name:   "global key for static path",
+			path:   "/static/images/logo.png",
+			method: "GET",
+			globalCacheKeys: map[string]string{
+				"/static": "static-files",
+			},
+			want: "static-files",
+		},
+		{
+			name:   "multiple global keys - first match wins",
+			path:   "/assets/css/style.css",
+			method: "GET",
+			globalCacheKeys: map[string]string{
+				"/assets":     "assets-key",
+				"/assets/css": "css-key",
+			},
+			want: "assets-key", // First match based on map iteration
+		},
+		{
+			name:   "no matching global key - falls back to hash",
+			path:   "/api/users",
+			method: "GET",
+			query:  "id=1",
+			globalCacheKeys: map[string]string{
+				"/assets": "static-assets",
+				"/_next":  "nextjs-assets",
+			},
+			want: "hashed", // Will be calculated as hash
+		},
+		{
+			name:   "global key ignores query parameters and headers",
+			path:   "/assets/script.js",
+			method: "GET",
+			query:  "version=1.0&cache=false",
+			headers: map[string]string{
+				"Authorization": "Bearer token123",
+			},
+			globalCacheKeys: map[string]string{
+				"/assets": "static-assets",
+			},
+			want: "static-assets",
+		},
+		{
+			name:   "partial path match - should not match",
+			path:   "/asset", // Missing 's' from '/assets'
+			method: "GET",
+			globalCacheKeys: map[string]string{
+				"/assets": "static-assets",
+			},
+			want: "hashed", // Will be calculated as hash
+		},
+		{
+			name:   "exact prefix match",
+			path:   "/assets",
+			method: "GET",
+			globalCacheKeys: map[string]string{
+				"/assets": "static-assets",
+			},
+			want: "static-assets",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create request
+			req, err := http.NewRequest(tt.method, tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Add query parameters if any
+			if tt.query != "" {
+				req.URL.RawQuery = tt.query
+			}
+
+			// Add headers
+			for key, value := range tt.headers {
+				req.Header.Set(key, value)
+			}
+
+			// Create handler with config
+			h := handler{
+				cfg: config.CacheConfig{
+					ShouldHashQuery: true,
+					HashQueryIgnore: make(map[string]bool),
+					HashHeaders:     []string{},
+					GlobalCacheKeys: tt.globalCacheKeys,
+				},
+			}
+
+			// Get cache key
+			got := h.getCacheKey(req)
+
+			if tt.want == "hashed" {
+				// For non-global keys, verify it's a proper hash
+				assert.Len(t, got, 64, "should be a SHA256 hash (64 chars)")
+				assert.NotEqual(t, "static-assets", got)
+				assert.NotEqual(t, "nextjs-assets", got)
+				assert.NotEqual(t, "static-files", got)
+			} else {
+				// For global keys, should match exactly
+				assert.Equal(t, tt.want, got, "cache key mismatch")
+			}
+		})
+	}
+}

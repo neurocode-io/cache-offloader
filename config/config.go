@@ -38,6 +38,7 @@ type CacheConfig struct {
 	ShouldHashQuery bool
 	HashQueryIgnore map[string]bool
 	HashHeaders     []string
+	GlobalCacheKeys map[string]string // path pattern -> global key
 }
 
 type Config struct {
@@ -63,6 +64,7 @@ func New() Config {
 		ShouldHashQuery: getEnvAsBool("CACHE_SHOULD_HASH_QUERY", "true"),
 		HashQueryIgnore: hashQueryIgnoreMap(getEnvAsSlice("CACHE_HASH_QUERY_IGNORE")),
 		HashHeaders:     getEnvAsSlice("CACHE_HASH_HEADERS"),
+		GlobalCacheKeys: parseGlobalCacheKeys(getEnv("CACHE_GLOBAL_KEYS", "/public:static-files,/_next:nextjs-assets")),
 	}
 
 	if strings.ToLower(serverConfig.Storage) == "memory" {
